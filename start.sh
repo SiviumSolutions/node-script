@@ -118,6 +118,19 @@ echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing server environment...${NC
 export PORT="$PORT"
 export CLUSTER_PORT=$((PORT + 1))
 
+# Determine the command prefix based on the package manager
+case "$PKG_MANAGER" in
+  npm|pnpm)
+    CMD_PREFIX="$PKG_MANAGER run"
+    ;;
+  yarn|bun)
+    CMD_PREFIX="$PKG_MANAGER"
+    ;;
+  *)
+    error "Unsupported package manager: $PKG_MANAGER"
+    ;;
+esac
+
 # Display the configuration
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Configuration:${NC}"
 echo -e "${YELLOW}  PORT: $PORT${NC}"
@@ -229,30 +242,37 @@ if [[ -z "$SKIP_UPDATE" ]]; then
     npm)
       $PKG_MANAGER ci 2> >(grep -v warning 1>&2)
       ;;
-    *)
+    pnpm)
       $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning 1>&2)
+      ;;
+    yarn)
+      $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning 1>&2)
+      ;;
+    bun)
+      $PKG_MANAGER install 2> >(grep -v warning 1>&2)
       ;;
   esac
 
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building files...${NC}"
-  NODE_ENV=production $PKG_MANAGER run build
+  NODE_ENV=production $CMD_PREFIX build
 fi
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check modules...${NC}"
 if ! directory_exists "node_modules"; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing node modules...${NC}"
-  $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning 1>&2)
+  $PKG_MANAGER install 2> >(grep -v warning 1>&2)
 fi
+
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check files...${NC}"
 if [ "$PRJ_TYPE" = "backend" ]; then
   if ! directory_exists "dist"; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building backend from src...${NC}"
-    NODE_ENV=production $PKG_MANAGER run build > /dev/null 2>&1
+    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1
   fi
 elif [ "$PRJ_TYPE" = "frontend" ]; then
   if ! directory_exists ".next"; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building frontend from src...${NC}"
-    NODE_ENV=production $PKG_MANAGER run build > /dev/null 2>&1
+    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1
   fi
 fi
 
@@ -261,9 +281,9 @@ echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check Sentry release...${NC}"
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Starting production server...${NC}"
 # Run production build
-NODE_ENV=production $PKG_MANAGER run production > /dev/null 2>&1
+NODE_ENV=production $CMD_PREFIX production > /dev/null 2>&1
 
 # Monitor with pm2
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Starting log service..${NC}"
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Starting log service...${NC}"
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Process started. Monitoring with PM2.${NC}"
-$PKG_MANAGER run monit
+$CMD_PREFIX monit
