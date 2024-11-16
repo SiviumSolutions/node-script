@@ -117,7 +117,7 @@ fi
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check files...${NC}"
 if ! directory_exists "$HOME/dist"; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building from src...${NC}"
-  NODE_ENV=production yarn build
+  NODE_ENV=production yarn build > /dev/null 2>&1
 fi
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check sentry release...${NC}"
@@ -125,7 +125,7 @@ echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check sentry release...${NC}"
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Starting stapi server...${NC}"
 # Run production build
-yarn production
+yarn production > /dev/null 2>&1
 
 # Monitor with pm2
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Monitoring with PM2...${NC}"
