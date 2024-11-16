@@ -5,21 +5,127 @@ ORANGE='\033[0;33m'
 GREEN='\033[0;32m'
 PURPLE='\033[0;35m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Check if a port argument is provided
-if [ -z "$1" ]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}No port argument provided. Usage: $0 <port> <auto_update> <branch>${NC}"
+# Initialize variables
+PORT=""
+AUTO_UPDATE=""
+TARGET_BRANCH=""
+PRJ_TYPE=""
+PKG_MANAGER=""
+
+# Function to display usage instructions
+usage() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Usage: $0 --port <port> --autoupdate <1|0> --branch <branch_name> --prjtype <type> --pm <bun|pnpm|yarn|npm>${NC}"
   exit 1
-else
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing server environment...${NC}"
-  export PORT=$1
-  export CLUSTER_PORT=$(($1 + 1))
+}
+
+# Function to display error messages
+error() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: $1${NC}"
+  usage
+}
+
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
+  key="$1"
+
+  case $key in
+    --port)
+      PORT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --autoupdate)
+      AUTO_UPDATE="$2"
+      shift
+      shift
+      ;;
+    --branch)
+      TARGET_BRANCH="$2"
+      shift
+      shift
+      ;;
+    --prjtype)
+      PRJ_TYPE="$2"
+      shift
+      shift
+      ;;
+    --pm)
+      PKG_MANAGER="$2"
+      shift
+      shift
+      ;;
+    --help|-h)
+      usage
+      ;;
+    *)
+      error "Unknown option: $1"
+      ;;
+  esac
+done
+
+# Check for required arguments
+if [[ -z "$PORT" ]]; then
+  error "--port argument is required."
 fi
 
-# Check for auto-update and branch arguments
-AUTO_UPDATE=$2
-TARGET_BRANCH=$3
+if [[ -z "$AUTO_UPDATE" ]]; then
+  error "--autoupdate argument is required."
+fi
+
+if [[ -z "$TARGET_BRANCH" ]]; then
+  error "--branch argument is required."
+fi
+
+if [[ -z "$PRJ_TYPE" ]]; then
+  error "--prjtype argument is required."
+fi
+
+if [[ -z "$PKG_MANAGER" ]]; then
+  error "--pm (package manager) argument is required."
+fi
+
+# Validate PORT argument (must be a number between 1 and 65535)
+if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+  error "--port must be a number between 1 and 65535."
+fi
+
+# Validate AUTO_UPDATE argument (must be 1 or 0)
+if [[ "$AUTO_UPDATE" != "1" && "$AUTO_UPDATE" != "0" ]]; then
+  error "--autoupdate must be '1' or '0'."
+fi
+
+# Validate TARGET_BRANCH argument (allowed characters in Git branch names)
+if ! [[ "$TARGET_BRANCH" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
+  error "--branch contains invalid characters."
+fi
+
+# Validate PRJ_TYPE argument (allowed types)
+ALLOWED_PRJ_TYPES=("backend" "frontend" "api" "microservice")
+if [[ ! " ${ALLOWED_PRJ_TYPES[@]} " =~ " $PRJ_TYPE " ]]; then
+  error "--prjtype must be one of: ${ALLOWED_PRJ_TYPES[*]}"
+fi
+
+# Validate PKG_MANAGER argument (must be bun, pnpm, yarn, or npm)
+ALLOWED_PKG_MANAGERS=("bun" "pnpm" "yarn" "npm")
+if [[ ! " ${ALLOWED_PKG_MANAGERS[@]} " =~ " $PKG_MANAGER " ]]; then
+  error "--pm must be one of: ${ALLOWED_PKG_MANAGERS[*]}"
+fi
+
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing server environment...${NC}"
+export PORT="$PORT"
+export CLUSTER_PORT=$((PORT + 1))
+
+# Display the configuration
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Configuration:${NC}"
+echo -e "${YELLOW}  PORT: $PORT${NC}"
+echo -e "${YELLOW}  CLUSTER_PORT: $CLUSTER_PORT${NC}"
+echo -e "${YELLOW}  AUTO_UPDATE: $AUTO_UPDATE${NC}"
+echo -e "${YELLOW}  TARGET_BRANCH: $TARGET_BRANCH${NC}"
+echo -e "${YELLOW}  PRJ_TYPE: $PRJ_TYPE${NC}"
+echo -e "${YELLOW}  PACKAGE_MANAGER: $PKG_MANAGER${NC}"
 
 # Display current branch and commit
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -54,9 +160,9 @@ is_git_up_to_date() {
   REMOTE=$(git rev-parse @{u})
   BASE=$(git merge-base @ @{u})
 
-  if [ $LOCAL = $REMOTE ]; then
+  if [ "$LOCAL" = "$REMOTE" ]; then
     return 0
-  elif [ $LOCAL = $BASE ]; then
+  elif [ "$LOCAL" = "$BASE" ]; then
     return 1
   else
     return 2
@@ -79,13 +185,13 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
 fi
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Install file permissions...${NC}"
-chmod +x ./check.sh 
+chmod +x ./check.sh
 chmod +x ./sentry.sh
 
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Check project deps...${NC}"
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Check project dependencies...${NC}"
 ./check.sh --silent
-# Check if .env file exists
 
+# Check if .env file exists
 if [ -f ".env" ]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}.env file found. Loading environment variables...${NC}"
   export $(grep -v '^#' .env | xargs)
@@ -93,41 +199,72 @@ else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}.env file not found. Proceeding without environment variables from .env.${NC}"
   exit 1
 fi
+
 # Run subsequent steps if not skipped
 if [[ -z "$SKIP_UPDATE" ]]; then
-  # Check if yarn.lock does not exist, then create it
-  if [ ! -f "yarn.lock" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}yarn.lock does not exist. Creating...${NC}"
-    yarn install 2> >(grep -v warning 1>&2)
+  # Check if lock file does not exist, then create it
+  LOCK_FILE=""
+  case "$PKG_MANAGER" in
+    yarn)
+      LOCK_FILE="yarn.lock"
+      ;;
+    npm)
+      LOCK_FILE="package-lock.json"
+      ;;
+    pnpm)
+      LOCK_FILE="pnpm-lock.yaml"
+      ;;
+    bun)
+      LOCK_FILE="bun.lockb"
+      ;;
+  esac
+
+  if [ ! -f "$LOCK_FILE" ]; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}$LOCK_FILE does not exist. Creating...${NC}"
+    $PKG_MANAGER install 2> >(grep -v warning 1>&2)
   fi
 
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Preparing dependencies...${NC}"
-  yarn --frozen-lockfile 2> >(grep -v warning 1>&2)
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Preparing dependencies using $PKG_MANAGER...${NC}"
+  case "$PKG_MANAGER" in
+    npm)
+      $PKG_MANAGER ci 2> >(grep -v warning 1>&2)
+      ;;
+    *)
+      $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning 1>&2)
+      ;;
+  esac
 
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building files...${NC}"
-  NODE_ENV=production yarn build
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building files using $PKG_MANAGER...${NC}"
+  NODE_ENV=production $PKG_MANAGER run build
 fi
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check modules...${NC}"
-if ! directory_exists "$HOME/node_modules"; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Install node modules...${NC}"
-  yarn --frozen-lockfile 2> >(grep -v warning 1>&2)
+if ! directory_exists "node_modules"; then
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing node modules using $PKG_MANAGER...${NC}"
+  $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning 1>&2)
 fi
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check files...${NC}"
-if ! directory_exists "$HOME/dist"; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building from src...${NC}"
-  NODE_ENV=production yarn build > /dev/null 2>&1
+if [ "$PRJ_TYPE" = "backend" ]; then
+  if ! directory_exists "dist"; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building backend from src using $PKG_MANAGER...${NC}"
+    NODE_ENV=production $PKG_MANAGER run build > /dev/null 2>&1
+  fi
+elif [ "$PRJ_TYPE" = "frontend" ]; then
+  if ! directory_exists ".next"; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building frontend from src using $PKG_MANAGER...${NC}"
+    NODE_ENV=production $PKG_MANAGER run build > /dev/null 2>&1
+  fi
 fi
 
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check sentry release...${NC}"
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check Sentry release...${NC}"
 ./sentry.sh
 
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Starting stapi server...${NC}"
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Starting Strapi server...${NC}"
 # Run production build
-yarn production > /dev/null 2>&1
+NODE_ENV=production $PKG_MANAGER run production > /dev/null 2>&1
 
 # Monitor with pm2
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Monitoring with PM2...${NC}"
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Monitoring with PM2 using $PKG_MANAGER...${NC}"
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Process started. Monitoring with PM2.${NC}"
-yarn monit
+$PKG_MANAGER run monit
