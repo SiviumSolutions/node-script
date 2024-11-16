@@ -298,7 +298,7 @@ if [[ -z "$SKIP_UPDATE" || "$REINSTALL_MODULES" == "1" ]]; then
       ;;
   esac
 
-  if [[ "$BUILD_BEFORE_START" == "1" ]]; then
+  if [[ "$BUILD_BEFORE_START" == "1" && "$FORCE_REBUILD" != "1" ]]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building project...${NC}"
     NODE_ENV=production $CMD_PREFIX build
   else
