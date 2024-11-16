@@ -302,7 +302,9 @@ if [[ -z "$SKIP_UPDATE" || "$REINSTALL_MODULES" == "1" ]]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building project...${NC}"
     NODE_ENV=production $CMD_PREFIX build
   else
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Auto build before start is dissabled...${NC}"
+    if [[  "$FORCE_REBUILD" != "1" ]]; then
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Auto build before start is dissabled...${NC}"
+    fi
   fi
 fi
 
