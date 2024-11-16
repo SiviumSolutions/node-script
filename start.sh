@@ -14,6 +14,9 @@ AUTO_UPDATE=""
 TARGET_BRANCH=""
 PRJ_TYPE=""
 PKG_MANAGER=""
+BUILD_BEFORE_START=""
+REINSTALL_MODULES=""
+FORCE_REBUILD=""
 
 # Function to display usage instructions
 usage() {
@@ -252,8 +255,12 @@ else
 fi
 
 # Run subsequent steps if not skipped
-if [[ -z "$SKIP_UPDATE" || "$FORCE_REBUILD" == "1" ]]; then
+if [[ -z "$SKIP_UPDATE" || "$REINSTALL_MODULES" == "1" ]]; then
   # Check if lock file does not exist, then create it
+  if [[ "$REINSTALL_MODULES" == "1" ]]; then
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Reinstalling node modules...${NC}"
+      rm -rf node_modules
+  fi
   LOCK_FILE=""
   case "$PKG_MANAGER" in
     yarn)
@@ -294,7 +301,14 @@ if [[ -z "$SKIP_UPDATE" || "$FORCE_REBUILD" == "1" ]]; then
   if [[ "$BUILD_BEFORE_START" == "1" ]]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building project...${NC}"
     NODE_ENV=production $CMD_PREFIX build
+  else
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Auto build before start is dissabled...${NC}"
   fi
+fi
+
+if [[ "$FORCE_REBUILD" == "1" ]]; then
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Force building project from src...${NC}"
+  NODE_ENV=production $CMD_PREFIX build
 fi
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check modules...${NC}"
