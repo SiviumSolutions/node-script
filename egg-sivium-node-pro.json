@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2024-11-16T10:37:28+00:00",
+    "exported_at": "2024-11-16T13:19:00+00:00",
     "name": "Sivium Node Pro",
     "author": "maxnomad123@gmail.com",
     "description": "a generic node.js egg\r\n\r\nThis will clone a git repo. it defaults to master if no branch is specified.\r\n\r\nInstalls the node_modules on install. If you set user_upload then I assume you know what you are doing.",
@@ -21,7 +21,7 @@
         "Nodejs 12": "ghcr.io\/siviumsolutions\/nodepro_12"
     },
     "file_denylist": [],
-    "startup": "chmod +x start.sh && .\/start.sh {{SERVER_PORT}} {{AUTO_UPDATE}} {{BRANCH}}",
+    "startup": ".\/start.sh --port {{SERVER_PORT}} --autoupdate {{AUTO_UPDATE}} --branch {{BRANCH}} --prjtype {{PRJ_TYPE}} --pm {{PKG_MANAGER}}",
     "config": {
         "files": "{}",
         "startup": "{\r\n    \"done\": [\r\n        \"Create your first administrator \\ud83d\\udcbb by going to the administration panel at:\"\r\n    ]\r\n}",
@@ -37,54 +37,105 @@
     },
     "variables": [
         {
-            "name": "Git Repo Address",
-            "description": "GitHub Repo to clone\r\n\r\nI.E. https:\/\/github.com\/parkervcp\/repo_name",
-            "env_variable": "GIT_ADDRESS",
-            "default_value": "",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
-            "field_type": "text"
+          "name": "Git Repo Address",
+          "description": "GitHub repository to clone. E.g., https://github.com/username/repo_name",
+          "env_variable": "GIT_ADDRESS",
+          "default_value": "",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "nullable|string",
+          "field_type": "text"
         },
         {
-            "name": "Install Branch",
-            "description": "The branch to install.",
-            "env_variable": "BRANCH",
-            "default_value": "",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
-            "field_type": "text"
+          "name": "Auto Update",
+          "description": "Pull the latest files on startup when using a GitHub repository.",
+          "env_variable": "AUTO_UPDATE",
+          "default_value": "0",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "required|boolean",
+          "field_type": "text"
         },
         {
-            "name": "Auto Update",
-            "description": "Pull the latest files on startup when using a GitHub repo.",
-            "env_variable": "AUTO_UPDATE",
-            "default_value": "0",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "required|boolean",
-            "field_type": "text"
+          "name": "Install Branch",
+          "description": "The branch to install from the Git repository.",
+          "env_variable": "BRANCH",
+          "default_value": "develop",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "nullable|string",
+          "field_type": "text"
         },
         {
-            "name": "Git Username",
-            "description": "Username to auth with git.",
-            "env_variable": "USERNAME",
-            "default_value": "",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
-            "field_type": "text"
+          "name": "Build Before Start",
+          "description": "Enable build commands before starting your app. Requires a build script in package.json.",
+          "env_variable": "BUILD_BEFORE_START",
+          "default_value": "1",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "required|boolean",
+          "field_type": "text"
         },
         {
-            "name": "Git Access Token",
-            "description": "Password to use with git.\r\n\r\nIt's best practice to use a Personal Access Token.\r\nhttps:\/\/github.com\/settings\/tokens\r\nhttps:\/\/gitlab.com\/-\/profile\/personal_access_tokens",
-            "env_variable": "ACCESS_TOKEN",
-            "default_value": "",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
-            "field_type": "text"
+          "name": "Git Username",
+          "description": "Username to authenticate with Git.",
+          "env_variable": "USERNAME",
+          "default_value": "",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "nullable|string",
+          "field_type": "text"
+        },
+        {
+          "name": "Reinstall Node Modules",
+          "description": "Enable to reinstall node modules on startup.",
+          "env_variable": "REINSTALL_MODULES",
+          "default_value": "0",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "required|boolean",
+          "field_type": "text"
+        },
+        {
+          "name": "Git Access Token",
+          "description": "Access token to use with Git. It's best practice to use a Personal Access Token.\nhttps://github.com/settings/tokens\nhttps://gitlab.com/-/profile/personal_access_tokens",
+          "env_variable": "ACCESS_TOKEN",
+          "default_value": "",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "nullable|string",
+          "field_type": "text"
+        },
+        {
+          "name": "Force Rebuild Application",
+          "description": "Enable force rebuild the application on startup.",
+          "env_variable": "FORCE_REBUILD",
+          "default_value": "0",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "required|boolean",
+          "field_type": "text"
+        },
+        {
+          "name": "Project Type",
+          "description": "Specify the type of project. Options are backend, frontend, api, or microservice.",
+          "env_variable": "PRJ_TYPE",
+          "default_value": "backend",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "required|in:backend,frontend,api,microservice",
+          "field_type": "text"
+        },
+        {
+          "name": "Package Manager",
+          "description": "Select the package manager to use. Options are yarn, npm, bun, or pnpm.",
+          "env_variable": "PKG_MANAGER",
+          "default_value": "yarn",
+          "user_viewable": true,
+          "user_editable": true,
+          "rules": "required|in:yarn,npm,bun,pnpm",
+          "field_type": "text"
         }
-    ]
+      ]
+      
 }

@@ -17,7 +17,11 @@ PKG_MANAGER=""
 
 # Function to display usage instructions
 usage() {
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Usage: $0 --port <port> --autoupdate <1|0> --branch <branch_name> --prjtype <type> --pm <bun|pnpm|yarn|npm>${NC}"
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Usage: $0 --port <port> --autoupdate <1|0> --branch <branch_name> --prjtype <backend|frontend|api|microservice> --pm <bun|pnpm|yarn|npm> [options]${NC}"
+  echo -e "Additional options:"
+  echo -e "  --build-before-start <1|0> Enable build commands before starting your app."
+  echo -e "  --reinstall-modules <1|0>  Reinstall node modules on startup."
+  echo -e "  --force-rebuild <1|0>      Force the application to rebuild on startup."
   exit 1
 }
 
@@ -54,6 +58,21 @@ while [[ $# -gt 0 ]]; do
       ;;
     --pm)
       PKG_MANAGER="$2"
+      shift
+      shift
+      ;;
+    --build-before-start)
+      BUILD_BEFORE_START="$2"
+      shift
+      shift
+      ;;
+    --reinstall-modules)
+      REINSTALL_MODULES="$2"
+      shift
+      shift
+      ;;
+    --force-rebuild)
+      FORCE_REBUILD="$2"
       shift
       shift
       ;;
@@ -114,6 +133,21 @@ if [[ ! " ${ALLOWED_PKG_MANAGERS[@]} " =~ " $PKG_MANAGER " ]]; then
   error "--pm must be one of: ${ALLOWED_PKG_MANAGERS[*]}"
 fi
 
+# Validate BUILD_BEFORE_START (must be 1 or 0)
+if [[ -n "$BUILD_BEFORE_START" && "$BUILD_BEFORE_START" != "1" && "$BUILD_BEFORE_START" != "0" ]]; then
+  error "--build-before-start must be '1' or '0'."
+fi
+
+# Validate REINSTALL_MODULES (must be 1 or 0)
+if [[ -n "$REINSTALL_MODULES" && "$REINSTALL_MODULES" != "1" && "$REINSTALL_MODULES" != "0" ]]; then
+  error "--reinstall-modules must be '1' or '0'."
+fi
+
+# Validate FORCE_REBUILD (must be 1 or 0)
+if [[ -n "$FORCE_REBUILD" && "$FORCE_REBUILD" != "1" && "$FORCE_REBUILD" != "0" ]]; then
+  error "--force-rebuild must be '1' or '0'."
+fi
+
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing server environment...${NC}"
 export PORT="$PORT"
 export CLUSTER_PORT=$((PORT + 1))
@@ -136,9 +170,13 @@ echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Configuration:${NC}"
 echo -e "${YELLOW}  PORT: $PORT${NC}"
 echo -e "${YELLOW}  CLUSTER_PORT: $CLUSTER_PORT${NC}"
 echo -e "${YELLOW}  AUTO_UPDATE: $AUTO_UPDATE${NC}"
+echo -e "${YELLOW}  BUILD_BEFORE_START: $BUILD_BEFORE_START${NC}"
+echo -e "${YELLOW}  REINSTALL_MODULES: $REINSTALL_MODULES${NC}"
+echo -e "${YELLOW}  FORCE_REBUILD: $FORCE_REBUILD${NC}"
 echo -e "${YELLOW}  TARGET_BRANCH: $TARGET_BRANCH${NC}"
 echo -e "${YELLOW}  PRJ_TYPE: $PRJ_TYPE${NC}"
 echo -e "${YELLOW}  PACKAGE_MANAGER: $PKG_MANAGER${NC}"
+
 
 # Display current branch and commit
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -214,7 +252,7 @@ else
 fi
 
 # Run subsequent steps if not skipped
-if [[ -z "$SKIP_UPDATE" ]]; then
+if [[ -z "$SKIP_UPDATE" || "$FORCE_REBUILD" == "1" ]]; then
   # Check if lock file does not exist, then create it
   LOCK_FILE=""
   case "$PKG_MANAGER" in
@@ -253,8 +291,10 @@ if [[ -z "$SKIP_UPDATE" ]]; then
       ;;
   esac
 
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building files...${NC}"
-  NODE_ENV=production $CMD_PREFIX build
+  if [[ "$BUILD_BEFORE_START" == "1" ]]; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building project...${NC}"
+    NODE_ENV=production $CMD_PREFIX build
+  fi
 fi
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check modules...${NC}"
@@ -263,18 +303,21 @@ if ! directory_exists "node_modules"; then
   $PKG_MANAGER install 2> >(grep -v warning 1>&2)
 fi
 
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check files...${NC}"
-if [ "$PRJ_TYPE" = "backend" ]; then
-  if ! directory_exists "dist"; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building backend from src...${NC}"
-    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1
-  fi
-elif [ "$PRJ_TYPE" = "frontend" ]; then
-  if ! directory_exists ".next"; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building frontend from src...${NC}"
-    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1
+if [[ "$BUILD_BEFORE_START" == "1" ]]; then
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check files...${NC}"
+  if [ "$PRJ_TYPE" = "backend" ]; then
+    if ! directory_exists "dist"; then
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building backend from src...${NC}"
+      NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1
+    fi
+  elif [ "$PRJ_TYPE" = "frontend" ]; then
+    if ! directory_exists ".next"; then
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building frontend from src...${NC}"
+      NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1
+    fi
   fi
 fi
+
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check Sentry release...${NC}"
 ./sentry.sh
