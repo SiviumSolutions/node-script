@@ -137,17 +137,17 @@ if [[ ! " ${ALLOWED_PKG_MANAGERS[@]} " =~ " $PKG_MANAGER " ]]; then
 fi
 
 # Validate BUILD_BEFORE_START (must be 1 or 0)
-if [[ -n "$BUILD_BEFORE_START" != "1" && "$BUILD_BEFORE_START" != "0" ]]; then
+if [[ "$BUILD_BEFORE_START" != "1" && "$BUILD_BEFORE_START" != "0" ]]; then
   error "--build-before-start must be '1' or '0'."
 fi
 
 # Validate REINSTALL_MODULES (must be 1 or 0)
-if [[ -n "$REINSTALL_MODULES" != "1" && "$REINSTALL_MODULES" != "0" ]]; then
+if [[ "$REINSTALL_MODULES" != "1" && "$REINSTALL_MODULES" != "0" ]]; then
   error "--reinstall-modules must be '1' or '0'."
 fi
 
 # Validate FORCE_REBUILD (must be 1 or 0)
-if [[ -n "$FORCE_REBUILD" != "1" && "$FORCE_REBUILD" != "0" ]]; then
+if [[ "$FORCE_REBUILD" != "1" && "$FORCE_REBUILD" != "0" ]]; then
   error "--force-rebuild must be '1' or '0'."
 fi
 
