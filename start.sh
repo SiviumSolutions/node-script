@@ -37,6 +37,11 @@ if git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
   if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Switching to branch $TARGET_BRANCH...${NC}"
     git checkout "$TARGET_BRANCH"
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Switch complete, checking current...${NC}"
+    SW_CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    SW_CURRENT_COMMIT=$(git rev-parse HEAD)
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Current branch: ${YELLOW}$SW_CURRENT_BRANCH${NC}"
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Current commit: ${YELLOW}$SW_CURRENT_COMMIT${NC}"
   fi
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Branch $TARGET_BRANCH does not exist. Staying on $CURRENT_BRANCH.${NC}"
