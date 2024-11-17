@@ -241,6 +241,7 @@ fi
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Install file permissions...${NC}"
 chmod +x ./check.sh
 chmod +x ./sentry.sh
+chmod +x ./nginx.sh
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Check project dependencies...${NC}"
 ./check.sh --silent
@@ -337,6 +338,9 @@ fi
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check Sentry release...${NC}"
 ./sentry.sh
+
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Setup nginx...${NC}"
+./nginx.sh
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Starting production server...${NC}"
 # Run production build

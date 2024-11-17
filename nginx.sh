@@ -7,12 +7,13 @@ PURPLE='\033[0;35m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
-
+CONTAINER_NAME='test'
+DOMAIN_NAME='test.sivium.solutions'
 # Variables (ensure these are set in the Docker environment or adjust them manually)
-NGINX_CONFIG="/mnt/configs/nginx-config.conf"
+NGINX_CONFIG=".nginx/root.conf"
 TARGET_CONFIG="/etc/nginx/sites-enabled/${CONTAINER_NAME}.conf"
-CERT_PATH="/etc/nginx/certs/${DOMAIN_NAME}"
-ACME_PATH=".acme/.acme.sh"  # Ensure acme.sh is installed here or adjust accordingly
+CERT_PATH=".ssl/${DOMAIN_NAME}"
+ACME_PATH=".acme"  # Ensure acme.sh is installed here or adjust accordingly
 
 # Cloudflare API token (make sure it's set as an environment variable)
 export CF_Token="${CLOUDFLARE_API_TOKEN}"
