@@ -13,6 +13,20 @@ if [[ "$1" == "--silent" ]]; then
 fi
 
 # Check if .pm2 folder does not exist, then install pm2
+if ! command -v wrangler &> /dev/null; then
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing wrangler...${NC}"
+  yarn global add wrangler
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}wrangler installed successfully.${NC}"
+else
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}wrangler is already installed.${NC}"
+fi
+
+if ! command -v /usr/local/bin/acme.sh/acme.sh &> /dev/null; then
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Acme sh not found...${NC}"
+else
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}acme is already installed.${NC}"
+fi
+
 if ! command -v pm2 &> /dev/null; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing pm2...${NC}"
   yarn global add pm2
