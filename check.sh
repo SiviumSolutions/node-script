@@ -21,7 +21,7 @@ else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}wrangler is already installed.${NC}"
 fi
 
-if ! command -v /usr/local/bin/acme.sh/acme.sh &> /dev/null; then
+if ! command -v .acme/acme.sh &> /dev/null; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Acme sh not found...${NC}"
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}acme is already installed.${NC}"

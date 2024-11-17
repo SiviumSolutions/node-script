@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 NGINX_CONFIG="/mnt/configs/nginx-config.conf"
 TARGET_CONFIG="/etc/nginx/sites-enabled/${CONTAINER_NAME}.conf"
 CERT_PATH="/etc/nginx/certs/${DOMAIN_NAME}"
-ACME_PATH="/root/.acme.sh"  # Ensure acme.sh is installed here or adjust accordingly
+ACME_PATH=".acme/.acme.sh"  # Ensure acme.sh is installed here or adjust accordingly
 
 # Cloudflare API token (make sure it's set as an environment variable)
 export CF_Token="${CLOUDFLARE_API_TOKEN}"
