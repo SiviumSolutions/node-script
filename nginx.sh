@@ -12,7 +12,7 @@ NGINX_CONFIG=".nginx/root.conf"
 TARGET_CONFIG="/etc/nginx/sites-enabled/${DOMAIN_NAME}-${HOSTNAME}.conf"
 CERT_PATH=".ssl/${DOMAIN_NAME}-${HOSTNAME}"
 ACME_PATH=".acme"
-EMAIL="my@example.com"  # Replace with your actual email for acme.sh account
+EMAIL="info@sivium.solutions"  # Replace with your actual email for acme.sh account
 
 # Check for required environment variables
 if [ -z "${CF_Token}" ]; then
@@ -36,14 +36,35 @@ echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}All required Cloudflare environment v
 mkdir -p "$(dirname "$NGINX_CONFIG")" "$CERT_PATH" "$ACME_PATH"
 
 # Register acme.sh account with email if not already registered
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check acme.sh account with ZeroSSL...${NC}"
 if [ ! -f "${ACME_PATH}/account.conf" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | Registering acme.sh account with ZeroSSL...${NC}"
+    # Attempt to register the account
     "${ACME_PATH}/acme.sh" --register-account -m "$EMAIL"
+    
+    # Check if the registration was successful by looking for account.conf or checking http.header for errors
+    if [ -f "${ACME_PATH}/account.conf" ]; then
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Account successfully registered with ZeroSSL.${NC}"
+    else
+        # If account.conf is missing, check for errors in the http.header
+        if [ -f "${ACME_PATH}/http.header" ]; then
+            echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Registration failed. Checking http.header for details...${NC}"
+            cat "${ACME_PATH}/http.header"
+        else
+            echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Registration failed, and no http.header file found for debugging.${NC}"
+        fi
+        
+        # Exit to avoid further execution if registration fails
+        exit 1
+    fi
+else
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}acme.sh account is already registered.${NC}"
 fi
+
+
 
 # Function to check certificate expiration
 check_certificate_expiration() {
-    if [ -f "${CERT_PATH}/${DOMAIN_NAME}-${HOSTNAME}.cer" ]; then
+    if [ -f "${CERT_PATH}/${DOMAIN_NAME}.cer" ]; then
         expiration_date=$(openssl x509 -enddate -noout -in "${CERT_PATH}/${DOMAIN_NAME}.cer" | cut -d= -f2)
         expiration_epoch=$(date -d "${expiration_date}" +%s)
         current_epoch=$(date +%s)
@@ -83,7 +104,7 @@ renew_certificate() {
 
 # Generate Nginx configuration
 generate_nginx_config() {
-    echo -e "${ORANGE}SIVIUM SCRIPTS | Creating Nginx configuration for $CONTAINER_NAME.${NC}"
+    echo -e "${ORANGE}SIVIUM SCRIPTS | Creating Nginx configuration for $HOSTNAME.${NC}"
     cat <<EOL > "$NGINX_CONFIG"
 server {
     listen 80;
@@ -106,17 +127,17 @@ server {
     }
 }
 EOL
-    cp "$NGINX_CONFIG" "$TARGET_CONFIG"
+#    cp "$NGINX_CONFIG" "$TARGET_CONFIG"
 }
 
 # Main process
-if [ ! -f "$TARGET_CONFIG" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | Configuration for $CONTAINER_NAME not found, generating a new one.${NC}"
+if [ ! -f "$NGINX_CONFIG" ]; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS | Configuration for $HOSTNAME not found, generating a new one.${NC}"
     generate_nginx_config
     check_certificate_expiration
-    nginx -s reload
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Nginx reloaded with the new configuration for $CONTAINER_NAME.${NC}"
+   # nginx -s reload
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Nginx reloaded with the new configuration for $HOSTNAME.${NC}"
 else
-    echo -e "${ORANGE}SIVIUM SCRIPTS | Configuration for $CONTAINER_NAME already exists. Checking SSL certificate expiration...${NC}"
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Configuration for $HOSTNAME already exists. Checking SSL certificate expiration...${NC}"
     check_certificate_expiration
 fi

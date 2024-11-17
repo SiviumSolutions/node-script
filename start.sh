@@ -243,7 +243,7 @@ chmod +x ./check.sh
 chmod +x ./sentry.sh
 chmod +x ./nginx.sh
 
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Check project dependencies...${NC}"
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check project dependencies...${NC}"
 ./check.sh --silent
 
 # Check if .env file exists
