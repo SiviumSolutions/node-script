@@ -9,13 +9,13 @@ NC='\033[0m' # No Color
 
 # Перевірка, що скрипт працює на Linux
 if [[ "$OSTYPE" != "linux-gnu"* ]]; then
-  echo -e "${RED}Error: This script only supports Linux.${NC}"
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: This script only supports Linux.${NC}"
   exit 1
 fi
 
 # Перевірка наявності package.json
 if [ ! -f package.json ]; then
-  echo -e "${RED}Error: package.json file not found!${NC}"
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: package.json file not found!${NC}"
   exit 1
 fi
 
@@ -31,7 +31,7 @@ VERSION=$(get_version)
 
 # Перевірка, чи версія отримана
 if [ -z "$VERSION" ]; then
-  echo -e "${RED}Failed to retrieve the version from package.json${NC}"
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to retrieve the version from package.json${NC}"
   exit 1
 fi
 
