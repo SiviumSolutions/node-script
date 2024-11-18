@@ -32,8 +32,6 @@ REINSTALL_MODULES="0"          # Default: 0 (disabled)
 FORCE_REBUILD="0"              # Default: 0 (disabled)
 
 LOCK_FILES=("package-lock.json" "yarn.lock" "pnpm-lock.yaml" "bun.lockb")
-CHANGED_LOCK_FILES=""
-CHANGED_TS_FILES=""
 SKIP_UPDATE=false
 
 # --------------------------------------------
@@ -316,45 +314,44 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     git pull || { echo -e "${RED}Git pull failed.${NC}"; exit 1; }
     UPDATED_COMMIT=$(git rev-parse HEAD)
     echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Updated commit: ${YELLOW}$UPDATED_COMMIT${NC}"
-  fi
-fi
+    # --------------------------------------------
+    # Check for Changes in Lock Files
+    # --------------------------------------------
+    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking for changes in lock files...${NC}"
+    for lock_file in "${LOCK_FILES[@]}"; do
+      if [ -f "$lock_file" ]; then
+        LOCAL_LOCK_HASH=$(git rev-parse HEAD:"$lock_file" 2>/dev/null || echo "")
+        REMOTE_LOCK_HASH=$(git rev-parse origin/"$CURRENT_BRANCH":"$lock_file" 2>/dev/null || echo "")
+        if [ "$LOCAL_LOCK_HASH" != "$REMOTE_LOCK_HASH" ]; then
+          CHANGED_LOCK_FILES+="$lock_file"$'\n'
+        fi
+      fi
+    done
 
-# --------------------------------------------
-# Check for Changes in Lock Files
-# --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking for changes in lock files...${NC}"
-for lock_file in "${LOCK_FILES[@]}"; do
-  if [ -f "$lock_file" ]; then
-    LOCAL_LOCK_HASH=$(git rev-parse HEAD:"$lock_file" 2>/dev/null || echo "")
-    REMOTE_LOCK_HASH=$(git rev-parse origin/"$CURRENT_BRANCH":"$lock_file" 2>/dev/null || echo "")
-    if [ "$LOCAL_LOCK_HASH" != "$REMOTE_LOCK_HASH" ]; then
-      CHANGED_LOCK_FILES+="$lock_file"$'\n'
+    # --------------------------------------------
+    # Check for Changes in TypeScript Files as per tsconfig.json
+    # --------------------------------------------
+    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking for changes in TypeScript files...${NC}"
+    if [ -f "tsconfig.json" ]; then
+      INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json)
+      EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json)
+
+      # Prepare git diff command between local and remote
+      GIT_DIFF_CMD="git diff --name-only origin/$CURRENT_BRANCH...HEAD"
+
+      for pattern in $INCLUDE_PATTERNS; do
+        GIT_DIFF_CMD+=" -- '$pattern'"
+      done
+
+      for pattern in $EXCLUDE_PATTERNS; do
+        GIT_DIFF_CMD+=" -- ':(exclude)$pattern'"
+      done
+
+      CHANGED_TS_FILES=$(eval "$GIT_DIFF_CMD")
+    else
+      echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Error: tsconfig.json not found.${NC}"
     fi
   fi
-done
-
-# --------------------------------------------
-# Check for Changes in TypeScript Files as per tsconfig.json
-# --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking for changes in TypeScript files...${NC}"
-if [ -f "tsconfig.json" ]; then
-  INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json)
-  EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json)
-
-  # Prepare git diff command between local and remote
-  GIT_DIFF_CMD="git diff --name-only origin/$CURRENT_BRANCH...HEAD"
-
-  for pattern in $INCLUDE_PATTERNS; do
-    GIT_DIFF_CMD+=" -- '$pattern'"
-  done
-
-  for pattern in $EXCLUDE_PATTERNS; do
-    GIT_DIFF_CMD+=" -- ':(exclude)$pattern'"
-  done
-
-  CHANGED_TS_FILES=$(eval "$GIT_DIFF_CMD")
-else
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Error: tsconfig.json not found.${NC}"
 fi
 
 # --------------------------------------------
@@ -476,7 +473,7 @@ if ! directory_exists "node_modules"; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Installing node modules...${NC}"
   $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
     echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { echo -e "${RED}Failed to install node modules.${NC}"; exit 1; }
+  done || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Failed to install node modules.${NC}"; exit 1; }
 fi
 
 # --------------------------------------------
@@ -488,13 +485,13 @@ if [[ "$BUILD_BEFORE_START" == "1" ]]; then
     backend)
       if ! directory_exists "dist"; then
         echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Building backend from source...${NC}"
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${RED}Backend build failed.${NC}"; exit 1; }
+        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Backend build failed.${NC}"; exit 1; }
       fi
       ;;
     frontend)
       if ! directory_exists ".next"; then
         echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Building frontend from source...${NC}"
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${RED}Frontend build failed.${NC}"; exit 1; }
+        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Frontend build failed.${NC}"; exit 1; }
       fi
       ;;
     api|microservice)
@@ -511,27 +508,27 @@ fi
 # Setup Sentry Release
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking Sentry release...${NC}"
-./sentry.sh || { echo -e "${RED}Sentry setup failed.${NC}"; exit 1; }
+./sentry.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Sentry setup failed.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Setup Nginx
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Setting up Nginx...${NC}"
-./nginx.sh || { echo -e "${RED}Nginx setup failed.${NC}"; exit 1; }
+./nginx.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Nginx setup failed.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Start Production Server
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Starting production server...${NC}"
 # Run production build
-NODE_ENV=production $CMD_PREFIX production > /dev/null 2>&1 || { echo -e "${RED}Failed to start production server.${NC}"; exit 1; }
+NODE_ENV=production $CMD_PREFIX production > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Failed to start production server.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Monitor with PM2
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Starting log service...${NC}"
 echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Process started. Monitoring with PM2.${NC}"
-$CMD_PREFIX monit || { echo -e "${RED}Failed to start PM2 monitoring.${NC}"; exit 1; }
+$CMD_PREFIX monit || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Failed to start PM2 monitoring.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Script Completion

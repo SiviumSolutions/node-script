@@ -16,12 +16,14 @@ fi
 # Check if .pm2 folder does not exist, then install pm2
 if ! command -v wrangler &> /dev/null; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: Wrangler not found...${NC}"
+  exit 1
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Wrangler is already installed.${NC}"
 fi
 
 if command -v jq >/dev/null 2>&1; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: Jq not found...${NC}"
+  exit 1
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Jq is already installed.${NC}"
 fi
@@ -29,12 +31,14 @@ fi
 
 if ! command -v .acme/acme.sh &> /dev/null; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: Acme sh not found...${NC}"
+  exit 1
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Acme is already installed.${NC}"
 fi
 
 if ! command -v pm2 &> /dev/null; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: Pm2 sh not found...${NC}"
+  exit 1
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Pm2 is already installed.${NC}"
 fi
@@ -42,6 +46,7 @@ fi
 # Check if .bun folder does not exist, then install bun
 if ! command -v bun &> /dev/null; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: Bun not found...${NC}"
+  exit 1
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Bun is already installed.${NC}"
 fi
@@ -49,6 +54,7 @@ fi
 # Check if sentry-cli is installed
 if ! command -v sentry-cli &> /dev/null; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: Sentry-cli not found...${NC}"
+  exit 1
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Sentry-cli is already installed.${NC}"
 fi
