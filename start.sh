@@ -293,7 +293,7 @@ if [[ -z "$SKIP_UPDATE" || "$REINSTALL_MODULES" == "1" ]]; then
       $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning 1>&2) | sed "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
       ;;
     yarn)
-      $PKG_MANAGER --frozen-lockfile 2> 2> >(grep -v warning 1>&2) | sed "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
+      $PKG_MANAGER --frozen-lockfile 2> >(grep -v warning 1>&2) | sed "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
       ;;
     bun)
       $PKG_MANAGER install 2> >(grep -v warning 1>&2) | sed "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
