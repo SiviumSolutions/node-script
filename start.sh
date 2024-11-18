@@ -376,7 +376,7 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
         done
 
         if [ "$MATCH_EXCLUDE" = false ]; then
-          CHANGED_TS_FILES+="$file"$'\n'
+          CHANGED_TS_FILES+="$file"$' '
         fi
       done <<< "$CHANGED_FILES"
 
