@@ -316,12 +316,6 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     success_message "Skip pulling."
     SKIP_UPDATE=true
   else
-    info_message "Updating project core from repository..."
-    git reset --hard || { error_exit "Git reset failed."; }
-    git pull || { error_exit "Git pull failed."; }
-    UPDATED_COMMIT=$(git rev-parse HEAD)
-    success_message "Updated commit: ${YELLOW}$UPDATED_COMMIT"
-    SKIP_UPDATE=false
     # --------------------------------------------
     # Check for Changes in Lock Files
     # --------------------------------------------
@@ -365,6 +359,12 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     else
       error "tsconfig.json not found."
     fi
+    info_message "Updating project core from repository..."
+    git reset --hard || { error_exit "Git reset failed."; }
+    git pull || { error_exit "Git pull failed."; }
+    UPDATED_COMMIT=$(git rev-parse HEAD)
+    success_message "Updated commit: ${YELLOW}$UPDATED_COMMIT"
+    SKIP_UPDATE=false
   fi
 else
   warn_message "Auto update is disabled."
