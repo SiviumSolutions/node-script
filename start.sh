@@ -334,7 +334,7 @@ if ! directory_exists "node_modules"; then
   $PKG_MANAGER install 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
         echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
     done
-
+fi
 if [[ "$BUILD_BEFORE_START" == "1" ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check files...${NC}"
   if [ "$PRJ_TYPE" = "backend" ]; then
