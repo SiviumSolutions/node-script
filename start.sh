@@ -508,14 +508,8 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   fi
 
   if [ "$BUILD_REQUIRED" = true ]; then
-    NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
-      if [[ "$line" =~ ^✔ ]]; then
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}$line${NC}"
-      elif [[ "$line" =~ ^\[[A-Z]+\] ]]; then
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$line${NC}"
-      else
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$line${NC}"
-      fi
+    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1; do
+    done || { error_exit "Build failed."; }
     done || { error_exit "Build failed."; }
     success_message "Build completed successfully."
   elif [ "$FORCE_REBUILD" == "1" ]; then
@@ -541,14 +535,7 @@ fi
 # --------------------------------------------
 if [[ "$FORCE_REBUILD" == "1" && "$BUILD_REQUIRED" = false ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
-  NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
-    if [[ "$line" =~ ^✔ ]]; then
-      echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}$line${NC}"
-    elif [[ "$line" =~ ^\[[A-Z]+\] ]]; then
-      echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$line${NC}"
-    else
-      echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$line${NC}"
-    fi
+  NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1; do
   done || { error_exit "Build failed."; }
 fi
 # --------------------------------------------
