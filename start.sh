@@ -263,20 +263,6 @@ echo -e "${YELLOW}  TARGET_BRANCH: $TARGET_BRANCH${NC}"
 echo -e "${YELLOW}  PRJ_TYPE: $PRJ_TYPE${NC}"
 echo -e "${YELLOW}  PACKAGE_MANAGER: $PKG_MANAGER${NC}"
 echo ""
-
-# --------------------------------------------
-# Display Current Git Branch and Commit
-# --------------------------------------------
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-CURRENT_COMMIT=$(git rev-parse HEAD 2>/dev/null)
-
-if [[ -n "$CURRENT_BRANCH" && -n "$CURRENT_COMMIT" ]]; then
-  success_message "Current branch: ${YELLOW}$CURRENT_BRANCH"
-  success_message "Current commit: ${YELLOW}$CURRENT_COMMIT"
-else
-  error_exit "Not a Git repository or Git is not installed."
-fi
-
 # --------------------------------------------
 # Function: Check if Git Branch is Up to Date
 # --------------------------------------------
@@ -309,6 +295,18 @@ chmod +x ./nginx.sh || { error_exit "Failed to set execute permission on nginx.s
 info_message "Checking project dependencies..."
 ./check.sh --silent || { error_exit "Dependency check failed."; }
 
+# --------------------------------------------
+# Display Current Git Branch and Commit
+# --------------------------------------------
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+CURRENT_COMMIT=$(git rev-parse HEAD 2>/dev/null)
+
+if [[ -n "$CURRENT_BRANCH" && -n "$CURRENT_COMMIT" ]]; then
+  success_message "Current branch: ${YELLOW}$CURRENT_BRANCH"
+  success_message "Current commit: ${YELLOW}$CURRENT_COMMIT"
+else
+  error_exit "Not a Git repository or Git is not installed."
+fi
 # --------------------------------------------
 # Git Actions: Reset and Pull if Needed
 # --------------------------------------------
@@ -368,6 +366,8 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
       error "tsconfig.json not found."
     fi
   fi
+else
+  warn_message "Auto update is disabled."
 fi
 
 # --------------------------------------------
