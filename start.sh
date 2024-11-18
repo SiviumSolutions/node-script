@@ -17,6 +17,9 @@ PURPLE='\033[0;35m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 LIGHTBLUE='\033[1;34m'
+GREY='\033[1;30m'      # Added Grey Color
+BOLD='\033[1m'         # Bold Text
+UNDERLINE='\033[4m'    # Underlined Text
 NC='\033[0m' # No Color
 
 # --------------------------------------------
@@ -33,6 +36,7 @@ FORCE_REBUILD="0"              # Default: 0 (disabled)
 
 LOCK_FILES=("package-lock.json" "yarn.lock" "pnpm-lock.yaml" "bun.lockb")
 SKIP_UPDATE=true
+BUILD_REQUIRED=false
 
 # --------------------------------------------
 # Function: Display Usage Instructions
@@ -87,11 +91,19 @@ success_message() {
 info_message() {
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$1${NC}"
 }
-
+# --------------------------------------------
+# Function: Display a warn message
+# --------------------------------------------
 warn_message() {
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}$1${NC}"
 }
+# --------------------------------------------
+# Function: Display a debug message
+# --------------------------------------------
 
+debug_message() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREY}$1${NC}"
+}
 # --------------------------------------------
 # Function: Validate Boolean Options (1 or 0)
 # --------------------------------------------
@@ -334,7 +346,8 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     CHANGED_LOCK_FILES=$(echo "$CHANGED_FILES" | grep -E '^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb)$')
     if [ -n "$CHANGED_LOCK_FILES" ]; then
       info_message "Changes detected in lock files:"
-      echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_LOCK_FILES${NC}"
+      debug_message "$CHANGED_LOCK_FILES"
+
     else
       success_message "No changes detected in lock files."
     fi
@@ -380,7 +393,7 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
 
       if [ -n "$CHANGED_TS_FILES" ]; then
         info_message "Changes detected in TypeScript files."
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_TS_FILES${NC}"
+        debug_message "$CHANGED_TS_FILES"
       else
         success_message "No changes detected in TypeScript files as per tsconfig.json."
       fi
@@ -446,7 +459,7 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   # Handle Changes in Lock Files
   if [ -n "$CHANGED_LOCK_FILES" ]; then
     warn_message "Make action for detected changes in lock files. Trigger file:"
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_LOCK_FILES${NC}"
+    debug_message "$CHANGED_LOCK_FILES"
     info_message "Installing updated packages..."
     info_message "Preparing dependencies..."
     case "$PKG_MANAGER" in
@@ -478,11 +491,10 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   # --------------------------------------------
   # Consolidated Build Logic
   # --------------------------------------------
-  BUILD_REQUIRED=false
 
   if [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" != "1" ]; then
     warn_message "Detected changes in TypeScript files. Trigger files:"
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_TS_FILES${NC}"
+    debug_message "$CHANGED_TS_FILES"
     info_message "Rebuilding application..."
     BUILD_REQUIRED=true
   fi
@@ -497,10 +509,17 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
 
   if [ "$BUILD_REQUIRED" = true ]; then
     NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+      if [[ "$line" =~ ^✔ ]]; then
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}$line${NC}"
+      elif [[ "$line" =~ ^\[[A-Z]+\] ]]; then
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$line${NC}"
+      else
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$line${NC}"
+      fi
     done || { error_exit "Build failed."; }
+    success_message "Build completed successfully."
   elif [ "$FORCE_REBUILD" == "1" ]; then
-    success_message "Force rebuild enabled; skipping build for detected changes in TypeScript files."
+    warn_message "Force rebuild enabled. Skipping build for detected changes in TypeScript files."
   else
     success_message "No build actions required."
   fi
@@ -516,46 +535,49 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
       echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
     done || { error_exit "Failed to install node modules."; }
   fi
-
-  # --------------------------------------------
-  # Handle Force Rebuild (If Not Covered Above)
-  # --------------------------------------------
-  if [[ "$FORCE_REBUILD" == "1" && "$BUILD_REQUIRED" = false ]]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
-    NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-    done || { error_exit "Force build failed."; }
-  fi
-
-  # --------------------------------------------
-  # Handle Project Type Specific Builds (Optional)
-  # --------------------------------------------
-  if [[ "$BUILD_BEFORE_START" == "1" && "$BUILD_REQUIRED" = true ]]; then
-    info_message "Checking build artifacts..."
-    case "$PRJ_TYPE" in
-      backend)
-        if ! directory_exists "dist"; then
-          info_message "Building backend from source..."
-          NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Backend build failed."; }
-        fi
-        ;;
-      frontend)
-        if ! directory_exists ".next"; then
-          info_message "Building frontend from source..."
-          NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Frontend build failed."; }
-        fi
-        ;;
-      api|microservice)
-        # Add specific build steps if needed
-        success_message "No specific build steps for project type '${PRJ_TYPE}'.${NC}"
-        ;;
-      *)
-        error "Unknown project type: $PRJ_TYPE"
-        ;;
-    esac
-  fi
 fi
-
+# --------------------------------------------
+# Handle Force Rebuild (If Not Covered Above)
+# --------------------------------------------
+if [[ "$FORCE_REBUILD" == "1" && "$BUILD_REQUIRED" = false ]]; then
+  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
+  NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
+    if [[ "$line" =~ ^✔ ]]; then
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}$line${NC}"
+    elif [[ "$line" =~ ^\[[A-Z]+\] ]]; then
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$line${NC}"
+    else
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$line${NC}"
+    fi
+  done || { error_exit "Build failed."; }
+fi
+# --------------------------------------------
+# Handle Project Type Specific Builds (Optional)
+# --------------------------------------------
+if [[ "$BUILD_BEFORE_START" == "1" && "$BUILD_REQUIRED" = true ]]; then
+  info_message "Checking build artifacts..."
+  case "$PRJ_TYPE" in
+    backend)
+      if ! directory_exists "dist"; then
+        info_message "Building backend from source..."
+        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Backend build failed."; }
+      fi
+      ;;
+    frontend)
+      if ! directory_exists ".next"; then
+        info_message "Building frontend from source..."
+        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Frontend build failed."; }
+      fi
+      ;;
+    api|microservice)
+      # Add specific build steps if needed
+      success_message "No specific build steps for project type '${PRJ_TYPE}'.${NC}"
+      ;;
+    *)
+      error "Unknown project type: $PRJ_TYPE"
+      ;;
+  esac
+fi
 # --------------------------------------------
 # Setup Sentry Release
 # --------------------------------------------
