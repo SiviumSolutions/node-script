@@ -67,6 +67,32 @@ error() {
 }
 
 # --------------------------------------------
+# Function: Display an error message and exit
+# --------------------------------------------
+error_exit() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: $1${NC}"
+  exit 1
+}
+
+# --------------------------------------------
+# Function: Display a success message
+# --------------------------------------------
+success_message() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}$1${NC}"
+}
+
+# --------------------------------------------
+# Function: Display an informational message
+# --------------------------------------------
+info_message() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$1${NC}"
+}
+
+warn_message() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}$1${NC}"
+}
+
+# --------------------------------------------
 # Function: Validate Boolean Options (1 or 0)
 # --------------------------------------------
 validate_boolean_option() {
@@ -200,7 +226,7 @@ validate_boolean_option "$FORCE_REBUILD" "force-rebuild"
 # --------------------------------------------
 # Display Initialization Message
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Installing server environment...${NC}"
+info_message "Installing server environment..."
 
 # --------------------------------------------
 # Export Environment Variables
@@ -226,7 +252,7 @@ esac
 # --------------------------------------------
 # Display Configuration Summary
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Configuration:${NC}"
+success_message "Configuration:"
 echo -e "${YELLOW}  PORT: $PORT${NC}"
 echo -e "${YELLOW}  CLUSTER_PORT: $CLUSTER_PORT${NC}"
 echo -e "${YELLOW}  AUTO_UPDATE: $AUTO_UPDATE${NC}"
@@ -245,11 +271,10 @@ CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 CURRENT_COMMIT=$(git rev-parse HEAD 2>/dev/null)
 
 if [[ -n "$CURRENT_BRANCH" && -n "$CURRENT_COMMIT" ]]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Current branch: ${YELLOW}$CURRENT_BRANCH${NC}"
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Current commit: ${YELLOW}$CURRENT_COMMIT${NC}"
+  success_message "Current branch: ${YELLOW}$CURRENT_BRANCH"
+  success_message "Current commit: ${YELLOW}$CURRENT_COMMIT"
 else
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Error: Not a Git repository or Git is not installed.${NC}"
-  exit 1
+  error_exit "Not a Git repository or Git is not installed."
 fi
 
 # --------------------------------------------
@@ -273,36 +298,36 @@ is_git_up_to_date() {
 # --------------------------------------------
 # Set File Permissions for Auxiliary Scripts
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} Setting file permissions...${NC}"
-chmod +x ./check.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to set execute permission on check.sh.${NC}"; exit 1; }
-chmod +x ./sentry.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to set execute permission on sentry.sh.${NC}"; exit 1; }
-chmod +x ./nginx.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to set execute permission on nginx.sh.${NC}"; exit 1; }
+info_message "Setting file permissions...}"
+chmod +x ./check.sh || { error_exit "Failed to set execute permission on check.sh."; }
+chmod +x ./sentry.sh || { error_exit "Failed to set execute permission on sentry.sh."; }
+chmod +x ./nginx.sh || { error_exit "Failed to set execute permission on nginx.sh."; }
 
 # --------------------------------------------
 # Check Project Dependencies
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking project dependencies...${NC}"
-./check.sh --silent || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Dependency check failed.${NC}"; exit 1; }
+info_message "Checking project dependencies..."
+./check.sh --silent || { error_exit "Dependency check failed."; }
 
 # --------------------------------------------
 # Git Actions: Reset and Pull if Needed
 # --------------------------------------------
 if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
   if is_git_up_to_date; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Project core is already up to date.${NC}"
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} Skipping update.${NC}"
+    success_message "Project core is already up to date."
+    success_message "Skipping update."
     SKIP_UPDATE=true
   else
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} Updating project core from repository...${NC}"
-    git reset --hard || { echo -e "${RED}Git reset failed.${NC}"; exit 1; }
-    git pull || { echo -e "${RED}Git pull failed.${NC}"; exit 1; }
+    info_message "Updating project core from repository..."
+    git reset --hard || { error_exit "Git reset failed."; }
+    git pull || { error_exit "Git pull failed."; }
     UPDATED_COMMIT=$(git rev-parse HEAD)
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Updated commit: ${YELLOW}$UPDATED_COMMIT${NC}"
+    success_message "Updated commit: ${YELLOW}$UPDATED_COMMIT"
     
     # --------------------------------------------
     # Check for Changes in Lock Files
     # --------------------------------------------
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking for changes in lock files...${NC}"
+    info_message "Checking for changes in lock files..."
     for lock_file in "${LOCK_FILES[@]}"; do
       if [ -f "$lock_file" ]; then
         LOCAL_LOCK_HASH=$(git rev-parse HEAD:"$lock_file" 2>/dev/null || echo "")
@@ -316,13 +341,13 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     # --------------------------------------------
     # Check for Changes in TypeScript Files as per tsconfig.json
     # --------------------------------------------
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking for changes in TypeScript files...${NC}"
+    info_message "Checking for changes in TypeScript files..."
     if [ -f "tsconfig.json" ]; then
       if command -v jq >/dev/null 2>&1; then
         INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json)
         EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json)
       else
-        echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Jq not found. Skipping TypeScript files check.${NC}"
+        error "Jq not found. Skipping TypeScript files check."
         INCLUDE_PATTERNS=""
         EXCLUDE_PATTERNS=""
       fi
@@ -340,19 +365,19 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
 
       CHANGED_TS_FILES=$(eval "$GIT_DIFF_CMD")
     else
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Error: tsconfig.json not found.${NC}"
+      error "tsconfig.json not found."
     fi
+  fi
 fi
 
 # --------------------------------------------
 # Load Environment Variables from .env
 # --------------------------------------------
 if [ -f ".env" ]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} .env file found. Loading environment variables...${NC}"
-  export $(grep -v '^#' .env | xargs) || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to load environment variables from .env.${NC}"; exit 1; }
+  success_message ".env file found. Loading environment variables..."
+  export $(grep -v '^#' .env | xargs) || { error_exit "Failed to load environment variables from .env"; }
 else
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} .env file not found. Proceeding without environment variables from .env.${NC}"
-  exit 1
+  error_exit ".env file not found. Proceeding without environment variables from .env"
 fi
 
 # --------------------------------------------
@@ -361,8 +386,8 @@ fi
 if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
   # Reinstall node modules if requested
   if [[ "$REINSTALL_MODULES" == "1" ]]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Reinstalling node modules...${NC}"
-    rm -rf node_modules || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to remove node_modules.${NC}"; exit 1; }
+    info_message "Reinstalling node modules...${NC}"
+    rm -rf node_modules || { error_exit "Failed to remove node_modules."; }
   fi
 
   # Determine Lock File Based on Package Manager
@@ -384,18 +409,18 @@ if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
 
   # Install Dependencies if Lock File Does Not Exist
   if [ ! -f "$LOCK_FILE" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} $LOCK_FILE does not exist. Creating...${NC}"
+    warn_message "$LOCK_FILE does not exist. Creating..."
     $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
       echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-    done || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to install dependencies.${NC}"; exit 1; }
+    done || { error_exit "Failed to install dependencies."; }
   fi
 
   # Handle Changes in Lock Files
   if [ -n "$CHANGED_LOCK_FILES" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} Changes detected in lock files between local and remote:${NC}"
+    warn_message "Changes detected in lock files between local and remote:"
     echo "$CHANGED_LOCK_FILES"
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Installing updated packages...${NC}"
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Preparing dependencies...${NC}"
+    info_message "Installing updated packages..."
+    info_message "Preparing dependencies..."
     case "$PKG_MANAGER" in
       npm)
         $PKG_MANAGER ci 2> >(grep -v warning >&2) | while IFS= read -r line; do
@@ -419,28 +444,28 @@ if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
         ;;
     esac
   else
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} No changes detected in lock files between local and remote.${NC}"
+    success_message "No changes detected in lock files between local and remote."
   fi
 
   # --------------------------------------------
   # Handle Build Before Start
   # --------------------------------------------
   if [[ "$BUILD_BEFORE_START" == "1" && "$FORCE_REBUILD" != "1" ]]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking current build...${NC}"
+    info_message "Checking current build..."
 
     if [ -n "$CHANGED_TS_FILES" ]; then
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} Changes detected in TypeScript files as per tsconfig.json:${NC}"
+      warn_message "Changes detected in TypeScript files as per tsconfig.json:"
       echo "$CHANGED_TS_FILES"
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Rebuilding application...${NC}"
+      info_message -e "Rebuilding application..."
       NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
         echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-      done || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Build failed.${NC}"; exit 1; }
+      done || { error_exit "Build failed."; }
     else
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} No changes detected in TypeScript files as per tsconfig.json.${NC}"
+      success_message "No changes detected in TypeScript files as per tsconfig.json."
     fi
   else
     if [[ "$FORCE_REBUILD" != "1" ]]; then
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} Auto build before start is disabled.${NC}"
+      warn_message "Auto build before start is disabled."
     fi
   fi
 fi
@@ -452,44 +477,44 @@ if [[ "$FORCE_REBUILD" == "1" ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
   NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
     echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Force build failed.${NC}"; exit 1; }
+  done || { error_exit "Force build failed."; }
 fi
 
 # --------------------------------------------
 # Ensure Node Modules are Installed
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking node modules...${NC}"
+info_message "Checking node modules..."
 if ! directory_exists "node_modules"; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Installing node modules...${NC}"
+  info_message "Installing node modules..."
   $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
     echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to install node modules.${NC}"; exit 1; }
+  done || { error_exit "Failed to install node modules."; }
 fi
 
 # --------------------------------------------
 # Handle Project Type Specific Builds
 # --------------------------------------------
 if [[ "$BUILD_BEFORE_START" == "1" ]]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking build artifacts...${NC}"
+  info_message "Checking build artifacts..."
   case "$PRJ_TYPE" in
     backend)
       if ! directory_exists "dist"; then
-        echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Building backend from source...${NC}"
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Backend build failed.${NC}"; exit 1; }
+        info_message "Building backend from source..."
+        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Backend build failed."; }
       fi
       ;;
     frontend)
       if ! directory_exists ".next"; then
-        echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Building frontend from source...${NC}"
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Frontend build failed.${NC}"; exit 1; }
+        info_message "Building frontend from source..."
+        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Frontend build failed."; }
       fi
       ;;
     api|microservice)
       # Add specific build steps if needed
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} No specific build steps for project type '${PRJ_TYPE}'.${NC}"
+      success_message "No specific build steps for project type '${PRJ_TYPE}'.${NC}"
       ;;
     *)
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Unknown project type: $PRJ_TYPE${NC}"
+      error "Unknown project type: $PRJ_TYPE"
       ;;
   esac
 fi
@@ -497,30 +522,30 @@ fi
 # --------------------------------------------
 # Setup Sentry Release
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking Sentry release...${NC}"
-./sentry.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Sentry setup failed.${NC}"; exit 1; }
+info_message "Checking Sentry release..."
+./sentry.sh || { error_exit "Sentry setup failed."; }
 
 # --------------------------------------------
 # Setup Nginx
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Setting up Nginx...${NC}"
-./nginx.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Nginx setup failed.${NC}"; exit 1; }
+info_message "Setting up Nginx...}"
+./nginx.sh || { error_exit "Nginx setup failed."; }
 
 # --------------------------------------------
 # Start Production Server
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Starting production server...${NC}"
+info_message "Starting production server..."
 # Run production build
-NODE_ENV=production $CMD_PREFIX production > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to start production server.${NC}"; exit 1; }
+NODE_ENV=production $CMD_PREFIX production > /dev/null 2>&1 || { error_exit "Failed to start production server."; }
 
 # --------------------------------------------
 # Monitor with PM2
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Starting log service...${NC}"
-echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Process started. Monitoring with PM2.${NC}"
-$CMD_PREFIX monit || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to start PM2 monitoring.${NC}"; exit 1; }
+info_message "Starting log service..."
+success_message "Process started. Monitoring with PM2."
+$CMD_PREFIX monit || { error_exit "Failed to start PM2 monitoring."; }
 
 # --------------------------------------------
 # Script Completion
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Deployment completed successfully.${NC}"
+success_message "Deployment completed successfully."

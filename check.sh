@@ -113,4 +113,4 @@ fi
 # --------------------------------------------
 info_message "All dependencies are verified. Press any key to exit..."
 read -n 1 -s
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Exiting.${NC}"
+success_message "Exiting......."

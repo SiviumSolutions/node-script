@@ -25,6 +25,20 @@ error_exit() {
 }
 
 # --------------------------------------------
+# Function: Display a success message
+# --------------------------------------------
+success_message() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}$1${NC}"
+}
+
+# --------------------------------------------
+# Function: Display an informational message
+# --------------------------------------------
+info_message() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$1${NC}"
+}
+
+# --------------------------------------------
 # Function: Get version from package.json using jq
 # --------------------------------------------
 get_version() {
@@ -80,16 +94,15 @@ fi
 # --------------------------------------------
 # Check if a release with the specified version already exists in Sentry
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Checking if release version $VERSION already exists in Sentry...${NC}"
 if sentry-cli releases list | grep -q "$VERSION"; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Release with version $VERSION already exists.${NC}"
+  success_message "Release with version $VERSION already exists."
   exit 0
 else
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Creating a new release for version $VERSION...${NC}"
+  info_message "Creating a new release for version $VERSION...${NC}"
   
   # --------------------------------------------
   # Create a new release in Sentry
-  # --------------------------------------------
+  # -------------------------------------------
   sentry-cli releases new "$VERSION" || error_exit "Failed to create the release in Sentry."
 
   # --------------------------------------------
@@ -102,5 +115,5 @@ else
   # --------------------------------------------
   sentry-cli releases finalize "$VERSION" || error_exit "Failed to finalize the release."
 
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Release $VERSION created and finalized successfully.${NC}"
+  success_message "Release $VERSION created and finalized successfully."
 fi
