@@ -263,6 +263,7 @@ echo -e "${YELLOW}  TARGET_BRANCH: $TARGET_BRANCH${NC}"
 echo -e "${YELLOW}  PRJ_TYPE: $PRJ_TYPE${NC}"
 echo -e "${YELLOW}  PACKAGE_MANAGER: $PKG_MANAGER${NC}"
 echo ""
+
 # --------------------------------------------
 # Function: Check if Git Branch is Up to Date
 # --------------------------------------------
@@ -307,6 +308,7 @@ if [[ -n "$CURRENT_BRANCH" && -n "$CURRENT_COMMIT" ]]; then
 else
   error_exit "Not a Git repository or Git is not installed."
 fi
+
 # --------------------------------------------
 # Git Actions: Reset and Pull if Needed
 # --------------------------------------------
@@ -316,55 +318,97 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     success_message "Skip pulling."
     SKIP_UPDATE=true
   else
-    # --------------------------------------------
-    # Check for Changes in Lock Files
-    # --------------------------------------------
-    info_message "Checking for changes in lock files..."
-    for lock_file in "${LOCK_FILES[@]}"; do
-      if [ -f "$lock_file" ]; then
-        LOCAL_LOCK_HASH=$(git rev-parse HEAD:"$lock_file" 2>/dev/null || echo "")
-        REMOTE_LOCK_HASH=$(git rev-parse origin/"$CURRENT_BRANCH":"$lock_file" 2>/dev/null || echo "")
-        if [ "$LOCAL_LOCK_HASH" != "$REMOTE_LOCK_HASH" ]; then
-          CHANGED_LOCK_FILES+="$lock_file"$'\n'
-        fi
-      fi
-    done
+    info_message "Updating project core from repository..."
 
-    # --------------------------------------------
-    # Check for Changes in TypeScript Files as per tsconfig.json
-    # --------------------------------------------
-    info_message "Checking for changes in TypeScript files..."
+    # Збережіть коміт перед pull
+    PRE_PULL_COMMIT=$(git rev-parse HEAD)
+    info_message "Pre-pull commit: ${YELLOW}$PRE_PULL_COMMIT${NC}"
+
+    # Виконайте git reset та git pull
+    git reset --hard || { error_exit "Git reset failed."; }
+    git pull || { error_exit "Git pull failed."; }
+
+    # Збережіть коміт після pull
+    POST_PULL_COMMIT=$(git rev-parse HEAD)
+    success_message "Updated commit: ${YELLOW}$POST_PULL_COMMIT${NC}"
+
+    # Отримайте список змінених файлів між комітами
+    CHANGED_FILES=$(git diff --name-only $PRE_PULL_COMMIT $POST_PULL_COMMIT)
+    info_message "Changed files since last pull:"
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_FILES${NC}"
+
+    # Перевірка змін у lock-файлах
+    CHANGED_LOCK_FILES=$(echo "$CHANGED_FILES" | grep -E '^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb)$')
+    if [ -n "$CHANGED_LOCK_FILES" ]; then
+      info_message "Changes detected in lock files:"
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_LOCK_FILES${NC}"
+    else
+      success_message "No changes detected in lock files."
+    fi
+
+    # Перевірка змін у TypeScript файлах за tsconfig.json
     if [ -f "tsconfig.json" ]; then
       if command -v jq >/dev/null 2>&1; then
-        INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json)
-        EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json)
+        # Зчитування патернів з tsconfig.json та видалення префіксу ./ якщо існує
+        INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json | sed 's|^\./||')
+        EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json | sed 's|^\./||')
       else
         error "Jq not found. Skipping TypeScript files check."
         INCLUDE_PATTERNS=""
         EXCLUDE_PATTERNS=""
       fi
 
-      # Prepare git diff command between local and remote
-      GIT_DIFF_CMD="git diff --name-only origin/$CURRENT_BRANCH...HEAD"
+      # Ініціалізація змінної для зберігання списку змінених TS файлів
+      CHANGED_TS_FILES=""
 
-      for pattern in $INCLUDE_PATTERNS; do
-        GIT_DIFF_CMD+=" -- '$pattern'"
-      done
+      # Проходимо по кожному зміненому файлу
+      while IFS= read -r file; do
+        # Перевіряємо, чи файл відповідає включеним патернам
+        MATCH_INCLUDE=false
+        for pattern in $INCLUDE_PATTERNS; do
+          # Використовуємо bash glob matching
+          if [[ "$file" == $pattern ]]; then
+            MATCH_INCLUDE=true
+            break
+          fi
+        done
 
-      for pattern in $EXCLUDE_PATTERNS; do
-        GIT_DIFF_CMD+=" -- ':(exclude)$pattern'"
-      done
+        # Якщо файл не відповідає включеним патернам, пропускаємо
+        if [ "$MATCH_INCLUDE" = false ]; then
+          continue
+        fi
 
-      CHANGED_TS_FILES=$(eval "$GIT_DIFF_CMD")
+        # Перевіряємо, чи файл НЕ відповідає виключеним патернам
+        MATCH_EXCLUDE=false
+        for pattern in $EXCLUDE_PATTERNS; do
+          if [[ "$file" == $pattern ]]; then
+            MATCH_EXCLUDE=true
+            break
+          fi
+        done
+
+        if [ "$MATCH_EXCLUDE" = false ]; then
+          # Додаємо файл до списку
+          CHANGED_TS_FILES+="$file"$'\n'
+        fi
+      done <<< "$CHANGED_FILES"
+
+      if [ -n "$CHANGED_TS_FILES" ]; then
+        info_message "Changes detected in TypeScript files."
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_TS_FILES${NC}"
+      else
+        success_message "No changes detected in TypeScript files as per tsconfig.json."
+      fi
     else
       error "tsconfig.json not found."
     fi
-    info_message "Updating project core from repository..."
-    git reset --hard || { error_exit "Git reset failed."; }
-    git pull || { error_exit "Git pull failed."; }
-    UPDATED_COMMIT=$(git rev-parse HEAD)
-    success_message "Updated commit: ${YELLOW}$UPDATED_COMMIT"
-    SKIP_UPDATE=false
+
+    # Встановлюємо SKIP_UPDATE на основі виявлених змін
+    if [ -n "$CHANGED_LOCK_FILES" ] || [ -n "$CHANGED_TS_FILES" ]; then
+      SKIP_UPDATE=false
+    else
+      SKIP_UPDATE=true
+    fi
   fi
 else
   warn_message "Auto update is disabled."
@@ -417,7 +461,7 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   info_message "Checking lock files..."
   # Handle Changes in Lock Files
   if [ -n "$CHANGED_LOCK_FILES" ]; then
-    warn_message "Changes detected in lock files between local and remote:"
+    warn_message "Make action for detected changes in lock files. Triger file:"
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_LOCK_FILES${NC}"
     info_message "Installing updated packages..."
     info_message "Preparing dependencies..."
@@ -452,7 +496,7 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   # --------------------------------------------
   info_message "Checking current build..."
   if [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" != "1" ]; then
-    warn_message "Changes detected in TypeScript files as per tsconfig.json:"
+    warn_message "Make action for detected changes in ts files. Triger files:"
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_TS_FILES${NC}"
     info_message "Rebuilding application..."
     NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
