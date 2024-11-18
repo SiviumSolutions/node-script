@@ -80,7 +80,7 @@ fi
 # --------------------------------------------
 # Check if a release with the specified version already exists in Sentry
 # --------------------------------------------
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Checking if release version $VERSION already exists in Sentry...${NC}"
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Checking if release version $VERSION already exists in Sentry...${NC}"
 if sentry-cli releases list | grep -q "$VERSION"; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Release with version $VERSION already exists.${NC}"
   exit 0

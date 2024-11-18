@@ -67,6 +67,24 @@ error() {
 }
 
 # --------------------------------------------
+# Function: Validate Boolean Options (1 or 0)
+# --------------------------------------------
+validate_boolean_option() {
+  local var_value="$1"
+  local var_name="$2"
+  if [[ "$var_value" != "1" && "$var_value" != "0" ]]; then
+    error "--$var_name must be '1' or '0'."
+  fi
+}
+
+# --------------------------------------------
+# Function: Check if Directory Exists
+# --------------------------------------------
+directory_exists() {
+  [ -d "$1" ]
+}
+
+# --------------------------------------------
 # Parse Command-Line Arguments
 # --------------------------------------------
 while [[ $# -gt 0 ]]; do
@@ -147,9 +165,7 @@ fi
 # --------------------------------------------
 # Validate AUTO_UPDATE Argument (1 or 0)
 # --------------------------------------------
-if [[ "$AUTO_UPDATE" != "1" && "$AUTO_UPDATE" != "0" ]]; then
-  error "--autoupdate must be '1' or '0'."
-fi
+validate_boolean_option "$AUTO_UPDATE" "autoupdate"
 
 # --------------------------------------------
 # Validate TARGET_BRANCH Argument (Git Branch Naming)
@@ -177,14 +193,6 @@ fi
 # --------------------------------------------
 # Validate Optional Boolean Arguments (1 or 0)
 # --------------------------------------------
-validate_boolean_option() {
-  local var_value="$1"
-  local var_name="$2"
-  if [[ "$var_value" != "1" && "$var_value" != "0" ]]; then
-    error "--$var_name must be '1' or '0'."
-  fi
-}
-
 validate_boolean_option "$BUILD_BEFORE_START" "build-before-start"
 validate_boolean_option "$REINSTALL_MODULES" "reinstall-modules"
 validate_boolean_option "$FORCE_REBUILD" "force-rebuild"
@@ -245,31 +253,7 @@ else
 fi
 
 # --------------------------------------------
-# Function: Check if Directory Exists
-# --------------------------------------------
-directory_exists() {
-  [ -d "$1" ]
-}
-
-# --------------------------------------------
-# Switch to Target Branch if Different
-# --------------------------------------------
-if git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
-  if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} Switching to branch $TARGET_BRANCH...${NC}"
-    git checkout "$TARGET_BRANCH" || { echo -e "${RED}Failed to checkout branch $TARGET_BRANCH.${NC}"; exit 1; }
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Switch complete, verifying current branch...${NC}"
-    SW_CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    SW_CURRENT_COMMIT=$(git rev-parse HEAD)
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Current branch: ${YELLOW}$SW_CURRENT_BRANCH${NC}"
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Current commit: ${YELLOW}$SW_CURRENT_COMMIT${NC}"
-  fi
-else
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Branch '$TARGET_BRANCH' does not exist. Staying on '$CURRENT_BRANCH'.${NC}"
-fi
-
-# --------------------------------------------
-# Function: Check if Git Repository is Up to Date
+# Function: Check if Git Branch is Up to Date
 # --------------------------------------------
 is_git_up_to_date() {
   git remote update &>/dev/null
@@ -314,6 +298,7 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     git pull || { echo -e "${RED}Git pull failed.${NC}"; exit 1; }
     UPDATED_COMMIT=$(git rev-parse HEAD)
     echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Updated commit: ${YELLOW}$UPDATED_COMMIT${NC}"
+    
     # --------------------------------------------
     # Check for Changes in Lock Files
     # --------------------------------------------
@@ -333,8 +318,14 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     # --------------------------------------------
     echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking for changes in TypeScript files...${NC}"
     if [ -f "tsconfig.json" ]; then
-      INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json)
-      EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json)
+      if command -v jq >/dev/null 2>&1; then
+        INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json)
+        EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json)
+      else
+        echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Jq not found. Skipping TypeScript files check.${NC}"
+        INCLUDE_PATTERNS=""
+        EXCLUDE_PATTERNS=""
+      fi
 
       # Prepare git diff command between local and remote
       GIT_DIFF_CMD="git diff --name-only origin/$CURRENT_BRANCH...HEAD"
@@ -351,7 +342,6 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     else
       echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Error: tsconfig.json not found.${NC}"
     fi
-  fi
 fi
 
 # --------------------------------------------
