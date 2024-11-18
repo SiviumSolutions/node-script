@@ -281,28 +281,40 @@ if [[ -z "$SKIP_UPDATE" || "$REINSTALL_MODULES" == "1" ]]; then
 
   if [ ! -f "$LOCK_FILE" ]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}$LOCK_FILE does not exist. Creating...${NC}"
-    $PKG_MANAGER install 2> >(grep -v warning 1>&2) | sed -e "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
+    $PKG_MANAGER install 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
+    done
   fi
 
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Preparing dependencies...${NC}"
   case "$PKG_MANAGER" in
     npm)
-      $PKG_MANAGER ci 2> >(grep -v warning 1>&2) | sed -e "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
+      $PKG_MANAGER ci 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
+    done
       ;;
     pnpm)
-      $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning 1>&2) | sed -e "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
+      $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
+    done
       ;;
     yarn)
-      $PKG_MANAGER --frozen-lockfile 2> >(grep -v warning 1>&2) | sed -e "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
+      $PKG_MANAGER --frozen-lockfile 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
+    done
       ;;
     bun)
-      $PKG_MANAGER install 2> >(grep -v warning 1>&2) | sed -e "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
+      $PKG_MANAGER install 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
+    done
       ;;
   esac
 
   if [[ "$BUILD_BEFORE_START" == "1" && "$FORCE_REBUILD" != "1" ]]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Building project...${NC}"
-    NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning 1>&2) | sed -e "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
+    NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
+    done
   else
     if [[  "$FORCE_REBUILD" != "1" ]]; then
       echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Auto build before start is dissabled...${NC}"
@@ -312,14 +324,16 @@ fi
 
 if [[ "$FORCE_REBUILD" == "1" ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Force building project from src...${NC}"
-  NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning 1>&2) | sed -e "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
+  NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
+    done
 fi
-
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check modules...${NC}"
 if ! directory_exists "node_modules"; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing node modules...${NC}"
-  $PKG_MANAGER install 2> >(grep -v warning 1>&2) | sed -e "s/^/${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}/"
-fi
+  $PKG_MANAGER install 2> >(grep -v warning 1>&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}${line}${NC}"
+    done
 
 if [[ "$BUILD_BEFORE_START" == "1" ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check files...${NC}"
