@@ -450,21 +450,27 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   # --------------------------------------------
   # Handle Build Before Start
   # --------------------------------------------
-  if [[ "$BUILD_BEFORE_START" == "1" && "$FORCE_REBUILD" != "1" ]]; then
-    info_message "Checking current build..."
-
-    if [ -n "$CHANGED_TS_FILES" ]; then
-      warn_message "Changes detected in TypeScript files as per tsconfig.json:"
-      echo "$CHANGED_TS_FILES"
-      info_message -e "Rebuilding application..."
-      NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
-        echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-      done || { error_exit "Build failed."; }
-    else
-      success_message "No changes detected in TypeScript files as per tsconfig.json."
-    fi
+  info_message "Checking current build..."
+  if [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" != "1" ]; then
+    warn_message "Changes detected in TypeScript files as per tsconfig.json:"
+    echo "$CHANGED_TS_FILES"
+    info_message "Rebuilding application..."
+    NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
+      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+    done || { error_exit "Build failed."; }
+  elif [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" == "1" ]; then
+    success_message "Force rebuild enabled; skipping build for detected changes in TypeScript files."
   else
-    if [[ "$FORCE_REBUILD" != "1" ]]; then
+    success_message "No changes detected in TypeScript files as per tsconfig.json."
+  fi
+
+  if [ "$BUILD_BEFORE_START" == "1" ] && [ "$FORCE_REBUILD" != "1" ]; then
+    info_message "Building application..."
+    NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
+      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+    done || { error_exit "Build failed."; }
+  else
+    if [ "$FORCE_REBUILD" != "1" ]; then
       warn_message "Auto build before start is disabled."
     fi
   fi
