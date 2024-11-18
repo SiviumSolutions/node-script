@@ -7,12 +7,10 @@ PURPLE='\033[0;35m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
-DOMAIN_NAME='test.sivium.solutions'
 NGINX_CONFIG=".nginx/root.conf"
 TARGET_CONFIG="/etc/nginx/sites-enabled/${DOMAIN_NAME}-${HOSTNAME}.conf"
 CERT_PATH=".ssl/${DOMAIN_NAME}-${HOSTNAME}"
 ACME_PATH=".acme"
-EMAIL="info@sivium.solutions"  # Replace with your actual email for acme.sh account
 
 # Check for required environment variables
 if [ -z "${CF_Token}" ]; then
@@ -27,6 +25,16 @@ fi
 
 if [ -z "${CF_Zone_ID}" ]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Cloudflare Zone ID (CF_Zone_ID) is not set. Exiting.${NC}"
+    exit 1
+fi
+
+if [ -z "${EMAIL}" ]; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}User email (EMAIL) is not set. Exiting.${NC}"
+    exit 1
+fi
+
+if [ -z "${DOMAIN_NAME}" ]; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Root domain (DOMAIN_NAME) is not set. Exiting.${NC}"
     exit 1
 fi
 

@@ -135,6 +135,26 @@
             "user_editable": true,
             "rules": "required|in:yarn,npm,bun,pnpm",
             "field_type": "text"
+        },
+        {
+            "name": "User email",
+            "description": "Specify user email for registering in domain services (CloudFlare).",
+            "env_variable": "EMAIL",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Root domain",
+            "description": "Specify Application domain name.",
+            "env_variable": "DOMAIN_NAME",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
         }
     ]
 }
