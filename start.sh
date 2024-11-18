@@ -298,7 +298,7 @@ is_git_up_to_date() {
 # --------------------------------------------
 # Set File Permissions for Auxiliary Scripts
 # --------------------------------------------
-info_message "Setting file permissions...}"
+info_message "Setting file permissions..."
 chmod +x ./check.sh || { error_exit "Failed to set execute permission on check.sh."; }
 chmod +x ./sentry.sh || { error_exit "Failed to set execute permission on sentry.sh."; }
 chmod +x ./nginx.sh || { error_exit "Failed to set execute permission on nginx.sh."; }
@@ -315,7 +315,7 @@ info_message "Checking project dependencies..."
 if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
   if is_git_up_to_date; then
     success_message "Project core is already up to date."
-    success_message "Skipping update."
+    success_message "Skip pulling."
     SKIP_UPDATE=true
   else
     info_message "Updating project core from repository..."
@@ -386,7 +386,8 @@ fi
 if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
   # Reinstall node modules if requested
   if [[ "$REINSTALL_MODULES" == "1" ]]; then
-    info_message "Reinstalling node modules...${NC}"
+    warn_message "Reinstalling node modules is enabled.${NC}"
+    info_message "Remove node modules...${NC}"
     rm -rf node_modules || { error_exit "Failed to remove node_modules."; }
   fi
 
@@ -469,17 +470,6 @@ if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
     fi
   fi
 fi
-
-# --------------------------------------------
-# Handle Force Rebuild
-# --------------------------------------------
-if [[ "$FORCE_REBUILD" == "1" ]]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
-  NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { error_exit "Force build failed."; }
-fi
-
 # --------------------------------------------
 # Ensure Node Modules are Installed
 # --------------------------------------------
@@ -489,6 +479,16 @@ if ! directory_exists "node_modules"; then
   $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
     echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
   done || { error_exit "Failed to install node modules."; }
+fi
+
+# --------------------------------------------
+# Handle Force Rebuild
+# --------------------------------------------
+if [[ "$FORCE_REBUILD" == "1" ]]; then
+  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
+  NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
+    echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+  done || { error_exit "Force build failed."; }
 fi
 
 # --------------------------------------------
@@ -528,7 +528,7 @@ info_message "Checking Sentry release..."
 # --------------------------------------------
 # Setup Nginx
 # --------------------------------------------
-info_message "Setting up Nginx...}"
+info_message "Setting up Nginx..."
 ./nginx.sh || { error_exit "Nginx setup failed."; }
 
 # --------------------------------------------
