@@ -208,6 +208,19 @@ else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Branch $TARGET_BRANCH does not exist. Staying on $CURRENT_BRANCH.${NC}"
 fi
 
+if [ -f "package.json" ]; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Found package.json. Checking caniuse-lite...${NC}"
+    if npx browserslist@latest --update-db | grep -q "caniuse-lite is outdated"; then
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}caniuse-lite is outdated. Updating...${NC}"
+        npx browserslist@latest --update-db > /dev/null 2>&1
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}caniuse-lite has been updated.${NC}"
+    else
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}caniuse-lite is up to date.${NC}"
+    fi
+else
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}package.json not found in the current directory. Cannot update caniuse-lite.${NC}"
+fi
+
 # Function to check if the Git repository is up to date
 is_git_up_to_date() {
   git remote update &>/dev/null
