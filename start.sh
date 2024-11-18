@@ -535,11 +535,12 @@ if [[ "$FORCE_REBUILD" == "1" && "$BUILD_REQUIRED" = false ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
   NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Force build failed."; }
   success_message "Force build completed successfully."
+  BUILD_REQUIRED=false
 fi
 # --------------------------------------------
 # Handle Project Type Specific Builds (Optional)
 # --------------------------------------------
-if [[ "$BUILD_BEFORE_START" == "1" && "$BUILD_REQUIRED" = true ]]; then
+if [[ "$BUILD_BEFORE_START" == "1" && "$FORCE_REBUILD" == "0" && "$BUILD_REQUIRED" = false ]]; then
   info_message "Checking build artifacts..."
   case "$PRJ_TYPE" in
     backend)
