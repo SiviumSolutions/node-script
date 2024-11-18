@@ -1,54 +1,106 @@
 #!/bin/bash
 
-# ANSI color codes
+# ============================================
+# SIVIUM SCRIPTS - Create Sentry Release
+# ============================================
+# This script automates the creation of a new release in Sentry
+# based on the version specified in package.json.
+# ============================================
+
+# --------------------------------------------
+# ANSI Color Codes for Styled Output
+# --------------------------------------------
 ORANGE='\033[0;33m'
 GREEN='\033[0;32m'
 PURPLE='\033[0;35m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Перевірка, що скрипт працює на Linux
-if [[ "$OSTYPE" != "linux-gnu"* ]]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: This script only supports Linux.${NC}"
+# --------------------------------------------
+# Function: Display an error message and exit
+# --------------------------------------------
+error_exit() {
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: $1${NC}"
   exit 1
-fi
+}
 
-# Перевірка наявності package.json
-if [ ! -f package.json ]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: package.json file not found!${NC}"
-  exit 1
-fi
-
-# Функція для отримання версії з package.json
+# --------------------------------------------
+# Function: Get version from package.json using jq
+# --------------------------------------------
 get_version() {
-  # Для Linux використовуємо Bash-команди
-  VERSION=$(grep '"version"' package.json | sed 's/.*"version": "\(.*\)",/\1/')
+  if command -v jq >/dev/null 2>&1; then
+    VERSION=$(jq -r '.version' package.json)
+  else
+    # Fallback to grep and sed if jq is not installed
+    VERSION=$(grep '"version"' package.json | sed 's/.*"version": "\(.*\)",/\1/')
+  fi
   echo "$VERSION"
 }
 
-# Отримання версії з package.json
-VERSION=$(get_version)
-
-# Перевірка, чи версія отримана
-if [ -z "$VERSION" ]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to retrieve the version from package.json${NC}"
-  exit 1
+# --------------------------------------------
+# Check if the script is running on Linux
+# --------------------------------------------
+if [[ "$OSTYPE" != "linux-gnu"* ]]; then
+  error_exit "This script only supports Linux."
 fi
 
-# Перевірка наявності випуску з цією версією
+# --------------------------------------------
+# Check for the existence of package.json
+# --------------------------------------------
+if [ ! -f package.json ]; then
+  error_exit "package.json file not found!"
+fi
+
+# --------------------------------------------
+# Retrieve the version from package.json
+# --------------------------------------------
+VERSION=$(get_version)
+
+# --------------------------------------------
+# Validate that the version was successfully retrieved
+# --------------------------------------------
+if [ -z "$VERSION" ] || [ "$VERSION" == "null" ]; then
+  error_exit "Failed to retrieve the version from package.json."
+fi
+
+# --------------------------------------------
+# Check if sentry-cli is installed
+# --------------------------------------------
+if ! command -v sentry-cli >/dev/null 2>&1; then
+  error_exit "sentry-cli is not installed. Please install sentry-cli before running this script."
+fi
+
+# --------------------------------------------
+# Optional: Define Sentry organization and project
+# --------------------------------------------
+# You can set these as environment variables or modify the script to accept them as arguments
+# SENTRY_ORG="your-sentry-organization"
+# SENTRY_PROJECT="your-sentry-project"
+
+# --------------------------------------------
+# Check if a release with the specified version already exists in Sentry
+# --------------------------------------------
+echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Checking if release version $VERSION already exists in Sentry...${NC}"
 if sentry-cli releases list | grep -q "$VERSION"; then
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Release with version $VERSION already exists.${NC}"
+  exit 0
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Creating a new release for version $VERSION...${NC}"
+  
+  # --------------------------------------------
+  # Create a new release in Sentry
+  # --------------------------------------------
+  sentry-cli releases new "$VERSION" || error_exit "Failed to create the release in Sentry."
 
-  # Створення випуску в Sentry
-  sentry-cli releases new "$VERSION"
-  
-  # Встановлення комітів для випуску
-  sentry-cli releases set-commits "$VERSION" --auto
-  
-  # Завершення випуску
-  sentry-cli releases finalize "$VERSION"
-  
+  # --------------------------------------------
+  # Associate commits with the release
+  # --------------------------------------------
+  sentry-cli releases set-commits --auto "$VERSION" || error_exit "Failed to set commits for the release."
+
+  # --------------------------------------------
+  # Finalize the release in Sentry
+  # --------------------------------------------
+  sentry-cli releases finalize "$VERSION" || error_exit "Failed to finalize the release."
+
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Release $VERSION created and finalized successfully.${NC}"
 fi

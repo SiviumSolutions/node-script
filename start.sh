@@ -290,15 +290,15 @@ is_git_up_to_date() {
 # Set File Permissions for Auxiliary Scripts
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} Setting file permissions...${NC}"
-chmod +x ./check.sh || { echo -e "${RED}Failed to set execute permission on check.sh.${NC}"; exit 1; }
-chmod +x ./sentry.sh || { echo -e "${RED}Failed to set execute permission on sentry.sh.${NC}"; exit 1; }
-chmod +x ./nginx.sh || { echo -e "${RED}Failed to set execute permission on nginx.sh.${NC}"; exit 1; }
+chmod +x ./check.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to set execute permission on check.sh.${NC}"; exit 1; }
+chmod +x ./sentry.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to set execute permission on sentry.sh.${NC}"; exit 1; }
+chmod +x ./nginx.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to set execute permission on nginx.sh.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Check Project Dependencies
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking project dependencies...${NC}"
-./check.sh --silent || { echo -e "${RED}Dependency check failed.${NC}"; exit 1; }
+./check.sh --silent || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Dependency check failed.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Git Actions: Reset and Pull if Needed
@@ -359,7 +359,7 @@ fi
 # --------------------------------------------
 if [ -f ".env" ]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} .env file found. Loading environment variables...${NC}"
-  export $(grep -v '^#' .env | xargs) || { echo -e "${RED}Failed to load environment variables from .env.${NC}"; exit 1; }
+  export $(grep -v '^#' .env | xargs) || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to load environment variables from .env.${NC}"; exit 1; }
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} .env file not found. Proceeding without environment variables from .env.${NC}"
   exit 1
@@ -372,7 +372,7 @@ if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
   # Reinstall node modules if requested
   if [[ "$REINSTALL_MODULES" == "1" ]]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Reinstalling node modules...${NC}"
-    rm -rf node_modules || { echo -e "${RED}Failed to remove node_modules.${NC}"; exit 1; }
+    rm -rf node_modules || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to remove node_modules.${NC}"; exit 1; }
   fi
 
   # Determine Lock File Based on Package Manager
@@ -397,7 +397,7 @@ if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
     echo -e "${ORANGE}SIVIUM SCRIPTS |${YELLOW} $LOCK_FILE does not exist. Creating...${NC}"
     $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
       echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-    done || { echo -e "${RED}Failed to install dependencies.${NC}"; exit 1; }
+    done || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to install dependencies.${NC}"; exit 1; }
   fi
 
   # Handle Changes in Lock Files
@@ -444,7 +444,7 @@ if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
       echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Rebuilding application...${NC}"
       NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
         echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-      done || { echo -e "${RED}Build failed.${NC}"; exit 1; }
+      done || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Build failed.${NC}"; exit 1; }
     else
       echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} No changes detected in TypeScript files as per tsconfig.json.${NC}"
     fi
@@ -462,7 +462,7 @@ if [[ "$FORCE_REBUILD" == "1" ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
   NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
     echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { echo -e "${RED}Force build failed.${NC}"; exit 1; }
+  done || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Force build failed.${NC}"; exit 1; }
 fi
 
 # --------------------------------------------
@@ -473,7 +473,7 @@ if ! directory_exists "node_modules"; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Installing node modules...${NC}"
   $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
     echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Failed to install node modules.${NC}"; exit 1; }
+  done || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to install node modules.${NC}"; exit 1; }
 fi
 
 # --------------------------------------------
@@ -485,13 +485,13 @@ if [[ "$BUILD_BEFORE_START" == "1" ]]; then
     backend)
       if ! directory_exists "dist"; then
         echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Building backend from source...${NC}"
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Backend build failed.${NC}"; exit 1; }
+        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Backend build failed.${NC}"; exit 1; }
       fi
       ;;
     frontend)
       if ! directory_exists ".next"; then
         echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Building frontend from source...${NC}"
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Frontend build failed.${NC}"; exit 1; }
+        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Frontend build failed.${NC}"; exit 1; }
       fi
       ;;
     api|microservice)
@@ -508,27 +508,27 @@ fi
 # Setup Sentry Release
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Checking Sentry release...${NC}"
-./sentry.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Sentry setup failed.${NC}"; exit 1; }
+./sentry.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Sentry setup failed.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Setup Nginx
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Setting up Nginx...${NC}"
-./nginx.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Nginx setup failed.${NC}"; exit 1; }
+./nginx.sh || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Nginx setup failed.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Start Production Server
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Starting production server...${NC}"
 # Run production build
-NODE_ENV=production $CMD_PREFIX production > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Failed to start production server.${NC}"; exit 1; }
+NODE_ENV=production $CMD_PREFIX production > /dev/null 2>&1 || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to start production server.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Monitor with PM2
 # --------------------------------------------
 echo -e "${ORANGE}SIVIUM SCRIPTS |${PURPLE} Starting log service...${NC}"
 echo -e "${ORANGE}SIVIUM SCRIPTS |${GREEN} Process started. Monitoring with PM2.${NC}"
-$CMD_PREFIX monit || { echo -e "${ORANGE}SIVIUM SCRIPTS |${RED}Failed to start PM2 monitoring.${NC}"; exit 1; }
+$CMD_PREFIX monit || { echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to start PM2 monitoring.${NC}"; exit 1; }
 
 # --------------------------------------------
 # Script Completion
