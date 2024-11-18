@@ -321,7 +321,7 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     git pull || { error_exit "Git pull failed."; }
     UPDATED_COMMIT=$(git rev-parse HEAD)
     success_message "Updated commit: ${YELLOW}$UPDATED_COMMIT"
-    
+    SKIP_UPDATE=false
     # --------------------------------------------
     # Check for Changes in Lock Files
     # --------------------------------------------
