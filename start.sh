@@ -32,7 +32,7 @@ REINSTALL_MODULES="0"          # Default: 0 (disabled)
 FORCE_REBUILD="0"              # Default: 0 (disabled)
 
 LOCK_FILES=("package-lock.json" "yarn.lock" "pnpm-lock.yaml" "bun.lockb")
-SKIP_UPDATE=false
+SKIP_UPDATE=true
 
 # --------------------------------------------
 # Function: Display Usage Instructions
@@ -383,14 +383,13 @@ fi
 # --------------------------------------------
 # Handle Node Modules Installation and Updates
 # --------------------------------------------
-if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
+if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   # Reinstall node modules if requested
   if [[ "$REINSTALL_MODULES" == "1" ]]; then
     warn_message "Reinstalling node modules is enabled.${NC}"
     info_message "Remove node modules...${NC}"
     rm -rf node_modules || { error_exit "Failed to remove node_modules."; }
   fi
-
   # Determine Lock File Based on Package Manager
   LOCK_FILE=""
   case "$PKG_MANAGER" in
@@ -415,7 +414,7 @@ if [[ "$SKIP_UPDATE" = false || "$REINSTALL_MODULES" == "1" ]]; then
       echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
     done || { error_exit "Failed to install dependencies."; }
   fi
-
+  info_message "Checking lock files..."
   # Handle Changes in Lock Files
   if [ -n "$CHANGED_LOCK_FILES" ]; then
     warn_message "Changes detected in lock files between local and remote:"
