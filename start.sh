@@ -418,7 +418,7 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   # Handle Changes in Lock Files
   if [ -n "$CHANGED_LOCK_FILES" ]; then
     warn_message "Changes detected in lock files between local and remote:"
-    echo "$CHANGED_LOCK_FILES"
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_LOCK_FILES${NC}"
     info_message "Installing updated packages..."
     info_message "Preparing dependencies..."
     case "$PKG_MANAGER" in
@@ -453,7 +453,7 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   info_message "Checking current build..."
   if [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" != "1" ]; then
     warn_message "Changes detected in TypeScript files as per tsconfig.json:"
-    echo "$CHANGED_TS_FILES"
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_TS_FILES${NC}"
     info_message "Rebuilding application..."
     NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
       echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
