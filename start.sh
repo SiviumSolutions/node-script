@@ -508,9 +508,7 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   fi
 
   if [ "$BUILD_REQUIRED" = true ]; then
-    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1; do
-    done || { error_exit "Build failed."; }
-    done || { error_exit "Build failed."; }
+    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Build failed."; }
     success_message "Build completed successfully."
   elif [ "$FORCE_REBUILD" == "1" ]; then
     warn_message "Force rebuild enabled. Skipping build for detected changes in TypeScript files."
@@ -535,8 +533,8 @@ fi
 # --------------------------------------------
 if [[ "$FORCE_REBUILD" == "1" && "$BUILD_REQUIRED" = false ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
-  NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1; do
-  done || { error_exit "Build failed."; }
+  NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Force build failed."; }
+  success_message "Force build completed successfully."
 fi
 # --------------------------------------------
 # Handle Project Type Specific Builds (Optional)
