@@ -330,8 +330,6 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
     success_message "Updated commit: ${YELLOW}$POST_PULL_COMMIT${NC}"
 
     CHANGED_FILES=$(git diff --name-only $PRE_PULL_COMMIT $POST_PULL_COMMIT)
-    info_message "Changed files since last pull:"
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_FILES${NC}"
 
     CHANGED_LOCK_FILES=$(echo "$CHANGED_FILES" | grep -E '^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb)$')
     if [ -n "$CHANGED_LOCK_FILES" ]; then
