@@ -445,7 +445,7 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   info_message "Checking lock files..."
   # Handle Changes in Lock Files
   if [ -n "$CHANGED_LOCK_FILES" ]; then
-    warn_message "Make action for detected changes in lock files. Triger file:"
+    warn_message "Make action for detected changes in lock files. Trigger file:"
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_LOCK_FILES${NC}"
     info_message "Installing updated packages..."
     info_message "Preparing dependencies..."
@@ -476,80 +476,84 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   fi
 
   # --------------------------------------------
-  # Handle Build Before Start
+  # Consolidated Build Logic
   # --------------------------------------------
-  info_message "Checking current build..."
+  BUILD_REQUIRED=false
+
   if [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" != "1" ]; then
-    warn_message "Make action for detected changes in ts files. Triger files:"
+    warn_message "Detected changes in TypeScript files. Trigger files:"
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_TS_FILES${NC}"
     info_message "Rebuilding application..."
-    NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-    done || { error_exit "Build failed."; }
-  elif [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" == "1" ]; then
-    success_message "Force rebuild enabled; skipping build for detected changes in TypeScript files."
-  else
-    success_message "No changes detected in TypeScript files as per tsconfig.json."
+    BUILD_REQUIRED=true
   fi
 
   if [ "$BUILD_BEFORE_START" == "1" ] && [ "$FORCE_REBUILD" != "1" ]; then
-    info_message "Building application..."
+    # Only set BUILD_REQUIRED to true if not already set by TS changes
+    if [ "$BUILD_REQUIRED" = false ]; then
+      info_message "Building application as per BUILD_BEFORE_START flag..."
+      BUILD_REQUIRED=true
+    fi
+  fi
+
+  if [ "$BUILD_REQUIRED" = true ]; then
     NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
       echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
     done || { error_exit "Build failed."; }
+  elif [ "$FORCE_REBUILD" == "1" ]; then
+    success_message "Force rebuild enabled; skipping build for detected changes in TypeScript files."
   else
-    if [ "$FORCE_REBUILD" != "1" ]; then
-      warn_message "Auto build before start is disabled."
-    fi
+    success_message "No build actions required."
   fi
-fi
-# --------------------------------------------
-# Ensure Node Modules are Installed
-# --------------------------------------------
-info_message "Checking node modules..."
-if ! directory_exists "node_modules"; then
-  info_message "Installing node modules..."
-  $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { error_exit "Failed to install node modules."; }
-fi
 
-# --------------------------------------------
-# Handle Force Rebuild
-# --------------------------------------------
-if [[ "$FORCE_REBUILD" == "1" ]]; then
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
-  NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { error_exit "Force build failed."; }
-fi
+  # --------------------------------------------
+  # Ensure Node Modules are Installed
+  # --------------------------------------------
 
-# --------------------------------------------
-# Handle Project Type Specific Builds
-# --------------------------------------------
-if [[ "$BUILD_BEFORE_START" == "1" ]]; then
-  info_message "Checking build artifacts..."
-  case "$PRJ_TYPE" in
-    backend)
-      if ! directory_exists "dist"; then
-        info_message "Building backend from source..."
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Backend build failed."; }
-      fi
-      ;;
-    frontend)
-      if ! directory_exists ".next"; then
-        info_message "Building frontend from source..."
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Frontend build failed."; }
-      fi
-      ;;
-    api|microservice)
-      # Add specific build steps if needed
-      success_message "No specific build steps for project type '${PRJ_TYPE}'.${NC}"
-      ;;
-    *)
-      error "Unknown project type: $PRJ_TYPE"
-      ;;
-  esac
+  info_message "Checking node modules..."
+  if ! directory_exists "node_modules"; then
+    info_message "Installing node modules..."
+    $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
+      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+    done || { error_exit "Failed to install node modules."; }
+  fi
+
+  # --------------------------------------------
+  # Handle Force Rebuild (If Not Covered Above)
+  # --------------------------------------------
+  if [[ "$FORCE_REBUILD" == "1" && "$BUILD_REQUIRED" = false ]]; then
+    echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
+    NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning >&2) | while IFS= read -r line; do
+      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+    done || { error_exit "Force build failed."; }
+  fi
+
+  # --------------------------------------------
+  # Handle Project Type Specific Builds (Optional)
+  # --------------------------------------------
+  if [[ "$BUILD_BEFORE_START" == "1" && "$BUILD_REQUIRED" = true ]]; then
+    info_message "Checking build artifacts..."
+    case "$PRJ_TYPE" in
+      backend)
+        if ! directory_exists "dist"; then
+          info_message "Building backend from source..."
+          NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Backend build failed."; }
+        fi
+        ;;
+      frontend)
+        if ! directory_exists ".next"; then
+          info_message "Building frontend from source..."
+          NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Frontend build failed."; }
+        fi
+        ;;
+      api|microservice)
+        # Add specific build steps if needed
+        success_message "No specific build steps for project type '${PRJ_TYPE}'.${NC}"
+        ;;
+      *)
+        error "Unknown project type: $PRJ_TYPE"
+        ;;
+    esac
+  fi
 fi
 
 # --------------------------------------------
