@@ -207,20 +207,6 @@ if git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
 else
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Branch $TARGET_BRANCH does not exist. Staying on $CURRENT_BRANCH.${NC}"
 fi
-
-if [ -f "package.json" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Found package.json. Checking caniuse-lite...${NC}"
-    if npx browserslist@latest --update-db | grep -q "caniuse-lite is outdated"; then
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}caniuse-lite is outdated. Updating...${NC}"
-        npx browserslist@latest --update-db > /dev/null 2>&1
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}caniuse-lite has been updated.${NC}"
-    else
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}caniuse-lite is up to date.${NC}"
-    fi
-else
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}package.json not found in the current directory. Cannot update caniuse-lite.${NC}"
-fi
-
 # Function to check if the Git repository is up to date
 is_git_up_to_date() {
   git remote update &>/dev/null
@@ -362,6 +348,63 @@ if [[ "$BUILD_BEFORE_START" == "1" ]]; then
     fi
   fi
 fi
+# ================== UPDATED FUNCTIONALITY ==================
+
+# Check for changes in lock files
+# Check for changes in lock files between local and remote
+LOCK_FILES=("package-lock.json" "yarn.lock" "pnpm-lock.yaml" "bun.lockb")
+CHANGED_LOCK_FILES=""
+
+for lock_file in "${LOCK_FILES[@]}"; do
+  if [ -f "$lock_file" ]; then
+    LOCAL_LOCK_HASH=$(git rev-parse HEAD:"$lock_file" 2>/dev/null || echo "")
+    REMOTE_LOCK_HASH=$(git rev-parse origin/"$CURRENT_BRANCH":"$lock_file" 2>/dev/null || echo "")
+    if [ "$LOCAL_LOCK_HASH" != "$REMOTE_LOCK_HASH" ]; then
+      CHANGED_LOCK_FILES+="$lock_file"$'\n'
+    fi
+  fi
+done
+
+if [ -n "$CHANGED_LOCK_FILES" ]; then
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Changes detected in lock files between local and remote:${NC}"
+  echo "$CHANGED_LOCK_FILES"
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Installing updated packages...${NC}"
+  $PKG_MANAGER install 2> >(grep -v warning 1>&2)
+else
+  echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}No changes detected in lock files between local and remote.${NC}"
+fi
+
+# Check for changes in files specified in tsconfig.json between local and remote
+
+  if [ -f "tsconfig.json" ]; then
+    INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json)
+    EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json)
+
+    # Prepare git diff command between local and remote
+    GIT_DIFF_CMD="git diff --name-only origin/$CURRENT_BRANCH...HEAD"
+
+    for pattern in $INCLUDE_PATTERNS; do
+      GIT_DIFF_CMD+=" -- '$pattern'"
+    done
+
+    for pattern in $EXCLUDE_PATTERNS; do
+      GIT_DIFF_CMD+=" -- ':(exclude)$pattern'"
+    done
+
+    CHANGED_TS_FILES=$(eval "$GIT_DIFF_CMD")
+
+    if [ -n "$CHANGED_TS_FILES" ]; then
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Changes detected in files specified in tsconfig.json between local and remote:${NC}"
+      echo "$CHANGED_TS_FILES"
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Rebuilding application...${NC}"
+      NODE_ENV=production $CMD_PREFIX build 2> >(grep -v warning 1>&2)
+    else
+      echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}No changes detected in files specified in tsconfig.json between local and remote.${NC}"
+    fi
+  else
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}tsconfig.json not found.${NC}"
+  fi
+
 
 
 echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check Sentry release...${NC}"
