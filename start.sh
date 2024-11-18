@@ -320,24 +320,19 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
   else
     info_message "Updating project core from repository..."
 
-    # Збережіть коміт перед pull
     PRE_PULL_COMMIT=$(git rev-parse HEAD)
     info_message "Pre-pull commit: ${YELLOW}$PRE_PULL_COMMIT${NC}"
 
-    # Виконайте git reset та git pull
     git reset --hard || { error_exit "Git reset failed."; }
     git pull || { error_exit "Git pull failed."; }
 
-    # Збережіть коміт після pull
     POST_PULL_COMMIT=$(git rev-parse HEAD)
     success_message "Updated commit: ${YELLOW}$POST_PULL_COMMIT${NC}"
 
-    # Отримайте список змінених файлів між комітами
     CHANGED_FILES=$(git diff --name-only $PRE_PULL_COMMIT $POST_PULL_COMMIT)
     info_message "Changed files since last pull:"
     echo -e "${ORANGE}SIVIUM SCRIPTS | ${LIGHTBLUE}$CHANGED_FILES${NC}"
 
-    # Перевірка змін у lock-файлах
     CHANGED_LOCK_FILES=$(echo "$CHANGED_FILES" | grep -E '^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb)$')
     if [ -n "$CHANGED_LOCK_FILES" ]; then
       info_message "Changes detected in lock files:"
@@ -346,10 +341,8 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
       success_message "No changes detected in lock files."
     fi
 
-    # Перевірка змін у TypeScript файлах за tsconfig.json
     if [ -f "tsconfig.json" ]; then
       if command -v jq >/dev/null 2>&1; then
-        # Зчитування патернів з tsconfig.json та видалення префіксу ./ якщо існує
         INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json | sed 's|^\./||')
         EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json | sed 's|^\./||')
       else
@@ -358,12 +351,9 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
         EXCLUDE_PATTERNS=""
       fi
 
-      # Ініціалізація змінної для зберігання списку змінених TS файлів
       CHANGED_TS_FILES=""
 
-      # Проходимо по кожному зміненому файлу
       while IFS= read -r file; do
-        # Перевіряємо, чи файл відповідає включеним патернам
         MATCH_INCLUDE=false
         for pattern in $INCLUDE_PATTERNS; do
           # Використовуємо bash glob matching
@@ -373,12 +363,10 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
           fi
         done
 
-        # Якщо файл не відповідає включеним патернам, пропускаємо
         if [ "$MATCH_INCLUDE" = false ]; then
           continue
         fi
 
-        # Перевіряємо, чи файл НЕ відповідає виключеним патернам
         MATCH_EXCLUDE=false
         for pattern in $EXCLUDE_PATTERNS; do
           if [[ "$file" == $pattern ]]; then
@@ -388,7 +376,6 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
         done
 
         if [ "$MATCH_EXCLUDE" = false ]; then
-          # Додаємо файл до списку
           CHANGED_TS_FILES+="$file"$'\n'
         fi
       done <<< "$CHANGED_FILES"
@@ -403,7 +390,6 @@ if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
       error "tsconfig.json not found."
     fi
 
-    # Встановлюємо SKIP_UPDATE на основі виявлених змін
     if [ -n "$CHANGED_LOCK_FILES" ] || [ -n "$CHANGED_TS_FILES" ]; then
       SKIP_UPDATE=false
     else
