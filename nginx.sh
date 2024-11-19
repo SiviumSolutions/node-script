@@ -88,7 +88,7 @@ usage() {
 # --------------------------------------------
 # Check for Required Environment Variables
 # --------------------------------------------
-required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME APP_PORT)
+required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME SERVER_PORT)
 
 for var in "${required_env_vars[@]}"; do
     if [ -z "${!var}" ]; then
@@ -188,7 +188,7 @@ renew_certificate() {
 # --------------------------------------------
 generate_nginx_config() {
     local domain="$1"
-    local app_port="$2"
+    local SERVER_PORT="$2"
 
     info_message "Creating Nginx configuration for $domain."
 
@@ -206,7 +206,7 @@ server {
     ssl_prefer_server_ciphers on;
 
     location / {
-        proxy_pass http://localhost:${app_port};
+        proxy_pass http://localhost:${SERVER_PORT};
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -227,15 +227,15 @@ main() {
         error_exit "DOMAIN_NAME and HOSTNAME environment variables must be set."
     fi
 
-    # Ensure APP_PORT is set
-    if [ -z "${APP_PORT}" ]; then
-        error_exit "APP_PORT environment variable must be set."
+    # Ensure SERVER_PORT is set
+    if [ -z "${SERVER_PORT}" ]; then
+        error_exit "SERVER_PORT environment variable must be set."
     fi
 
     # Generate Nginx configuration if it doesn't exist
     if [ ! -f "$NGINX_CONFIG" ]; then
         warn_message "Configuration for $HOSTNAME not found, generating a new one."
-        generate_nginx_config "$DOMAIN_NAME" "$APP_PORT"
+        generate_nginx_config "$DOMAIN_NAME" "$SERVER_PORT"
         
         # Check SSL certificate expiration (which will renew if necessary)
         check_certificate_expiration "$DOMAIN_NAME"
