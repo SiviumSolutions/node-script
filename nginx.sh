@@ -1,133 +1,212 @@
 #!/bin/bash
 
-# Colors for output
-ORANGE='\033[0;33m'
-GREEN='\033[0;32m'
-PURPLE='\033[0;35m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-NGINX_CONFIG=".nginx/root.conf"
-TARGET_CONFIG="/etc/nginx/sites-enabled/${DOMAIN_NAME}-${HOSTNAME}.conf"
-CERT_PATH=".ssl/${DOMAIN_NAME}-${HOSTNAME}"
-ACME_PATH=".acme"
+# ============================================
+# SIVIUM SCRIPTS - Nginx and SSL Configuration
+# ============================================
+# This script automates the setup and configuration
+# of Nginx with SSL certificates managed by acme.sh
+# and integrates with Cloudflare for DNS management.
+# ============================================
 
-# Check for required environment variables
-if [ -z "${CF_Token}" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Cloudflare Token (CF_Token) is not set. Exiting.${NC}"
+# --------------------------------------------
+# ANSI Color Codes for Styled Output
+# --------------------------------------------
+ORANGE='\033[0;33m'       # Orange
+GREEN='\033[0;32m'        # Green
+PURPLE='\033[0;35m'       # Purple
+YELLOW='\033[1;33m'       # Yellow
+RED='\033[0;31m'          # Red
+LIGHTBLUE='\033[1;34m'    # Light Blue
+GREY='\033[1;30m'         # Grey
+BOLD='\033[1m'            # Bold Text
+UNDERLINE='\033[4m'       # Underlined Text
+NC='\033[0m'              # No Color
+
+# --------------------------------------------
+# Configuration Variables
+# --------------------------------------------
+NGINX_CONFIG=".nginx/root.conf"                           # Path to Nginx configuration template
+TARGET_CONFIG="/etc/nginx/sites-enabled/${DOMAIN_NAME}-${HOSTNAME}.conf" # Target Nginx configuration path
+CERT_PATH=".ssl/${DOMAIN_NAME}-${HOSTNAME}"                # Path to store SSL certificates
+ACME_PATH=".acme"                                         # Path to acme.sh installation
+
+# --------------------------------------------
+# Function: Display Error Messages and Usage
+# --------------------------------------------
+error() {
+    echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Error:${NC} $1"
+    usage  # Assuming a 'usage' function is defined elsewhere in your script
+}
+
+# --------------------------------------------
+# Function: Display an Error Message and Exit
+# --------------------------------------------
+error_exit() {
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: $1${NC}"
     exit 1
-fi
+}
 
-if [ -z "${CF_Account_ID}" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Cloudflare Account ID (CF_Account_ID) is not set. Exiting.${NC}"
+# --------------------------------------------
+# Function: Display a Success Message
+# --------------------------------------------
+success_message() {
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}$1${NC}"
+}
+
+# --------------------------------------------
+# Function: Display an Informational Message
+# --------------------------------------------
+info_message() {
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$1${NC}"
+}
+
+# --------------------------------------------
+# Function: Display a Warning Message
+# --------------------------------------------
+warn_message() {
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}$1${NC}"
+}
+
+# --------------------------------------------
+# Function: Display a Debug Message
+# --------------------------------------------
+debug_message() {
+    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREY}$1${NC}"
+}
+
+# --------------------------------------------
+# Function: Display Usage Instructions
+# --------------------------------------------
+usage() {
+    echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Usage:${NC} $0 [options]"
+    echo -e "Options:"
+    echo -e "  --help, -h           Display this help message."
+    # Add more usage information as needed
     exit 1
-fi
+}
 
-if [ -z "${CF_Zone_ID}" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Cloudflare Zone ID (CF_Zone_ID) is not set. Exiting.${NC}"
-    exit 1
-fi
+# --------------------------------------------
+# Check for Required Environment Variables
+# --------------------------------------------
+required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME APP_PORT)
 
-if [ -z "${EMAIL}" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}User email (EMAIL) is not set. Exiting.${NC}"
-    exit 1
-fi
+for var in "${required_env_vars[@]}"; do
+    if [ -z "${!var}" ]; then
+        error_exit "Required environment variable '$var' is not set. Exiting."
+    fi
+done
 
-if [ -z "${DOMAIN_NAME}" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Root domain (DOMAIN_NAME) is not set. Exiting.${NC}"
-    exit 1
-fi
+success_message "All required Cloudflare environment variables are set."
 
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}All required Cloudflare environment variables are set.${NC}"
-
-# Create required directories if they don't exist
+# --------------------------------------------
+# Create Required Directories if They Don't Exist
+# --------------------------------------------
+debug_message "Creating directories: $(dirname "$NGINX_CONFIG"), $CERT_PATH, $ACME_PATH"
 mkdir -p "$(dirname "$NGINX_CONFIG")" "$CERT_PATH" "$ACME_PATH"
 
-# Register acme.sh account with email if not already registered
-echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Check acme.sh account with ZeroSSL...${NC}"
+# --------------------------------------------
+# Register acme.sh Account with ZeroSSL if Not Registered
+# --------------------------------------------
+info_message "Checking acme.sh account registration with ZeroSSL..."
+
 if [ ! -f "${ACME_PATH}/account.conf" ]; then
     # Attempt to register the account
+    info_message "Registering acme.sh account with email: $EMAIL"
     "${ACME_PATH}/acme.sh" --register-account -m "$EMAIL"
-    
-    # Check if the registration was successful by looking for account.conf or checking http.header for errors
+
+    # Check if the registration was successful by looking for account.conf
     if [ -f "${ACME_PATH}/account.conf" ]; then
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Account successfully registered with ZeroSSL.${NC}"
+        success_message "Account successfully registered with ZeroSSL."
     else
         # If account.conf is missing, check for errors in the http.header
         if [ -f "${ACME_PATH}/http.header" ]; then
-            echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Registration failed. Checking http.header for details...${NC}"
+            error "Registration failed. Checking http.header for details..."
             cat "${ACME_PATH}/http.header"
         else
-            echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Registration failed, and no http.header file found for debugging.${NC}"
+            error "Registration failed, and no http.header file found for debugging."
         fi
-        
         # Exit to avoid further execution if registration fails
         exit 1
     fi
 else
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}acme.sh account is already registered.${NC}"
+    success_message "acme.sh account is already registered."
 fi
 
-
-
-# Function to check certificate expiration
+# --------------------------------------------
+# Function: Check SSL Certificate Expiration
+# --------------------------------------------
 check_certificate_expiration() {
-    if [ -f "${CERT_PATH}/${DOMAIN_NAME}.cer" ]; then
-        expiration_date=$(openssl x509 -enddate -noout -in "${CERT_PATH}/${DOMAIN_NAME}.cer" | cut -d= -f2)
+    local domain="$1"
+
+    if [ -f "${CERT_PATH}/${domain}.cer" ]; then
+        # Get the expiration date of the certificate
+        expiration_date=$(openssl x509 -enddate -noout -in "${CERT_PATH}/${domain}.cer" | cut -d= -f2)
+        # Convert to epoch
         expiration_epoch=$(date -d "${expiration_date}" +%s)
         current_epoch=$(date +%s)
+        # Calculate days left
         days_left=$(( (expiration_epoch - current_epoch) / 86400 ))
 
         if [ "$days_left" -le 30 ]; then
-            echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}SSL certificate for $DOMAIN_NAME is expiring in ${days_left} days. Renewing...${NC}"
-            renew_certificate
+            error_message "SSL certificate for $domain is expiring in ${days_left} days. Renewing..."
+            renew_certificate "$domain"
         else
-            echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}SSL certificate for $DOMAIN_NAME is valid for ${days_left} more days.${NC}"
+            success_message "SSL certificate for $domain is valid for ${days_left} more days."
         fi
     else
-        echo -e "${ORANGE}SIVIUM SCRIPTS | SSL certificate not found for $DOMAIN_NAME. Requesting new certificate...${NC}"
-        renew_certificate
+        warn_message "SSL certificate not found for $domain. Requesting new certificate..."
+        renew_certificate "$domain"
     fi
 }
 
-# Function to request or renew the SSL certificate
+# --------------------------------------------
+# Function: Request or Renew the SSL Certificate
+# --------------------------------------------
 renew_certificate() {
+    local domain="$1"
+
     if [ -x "${ACME_PATH}/acme.sh" ]; then
-        "${ACME_PATH}/acme.sh" --issue --dns dns_cf -d "${DOMAIN_NAME}" \
+        info_message "Issuing SSL certificate for $domain using acme.sh..."
+        "${ACME_PATH}/acme.sh" --issue --dns dns_cf -d "${domain}" \
             --keylength ec-256 \
-            --cert-file "${CERT_PATH}/${DOMAIN_NAME}.cer" \
-            --key-file "${CERT_PATH}/${DOMAIN_NAME}.key" \
-            --fullchain-file "${CERT_PATH}/${DOMAIN_NAME}.fullchain.cer"
+            --cert-file "${CERT_PATH}/${domain}.cer" \
+            --key-file "${CERT_PATH}/${domain}.key" \
+            --fullchain-file "${CERT_PATH}/${domain}.fullchain.cer"
+
         if [ $? -eq 0 ]; then
-            echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}SSL certificate obtained successfully for $DOMAIN_NAME.${NC}"
+            info_message "SSL certificate obtained successfully for $domain."
         else
-            echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Failed to obtain SSL certificate for $DOMAIN_NAME.${NC}"
-            exit 1
+            error_exit "Failed to obtain SSL certificate for $domain."
         fi
     else
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}acme.sh not found or not executable at ${ACME_PATH}/acme.sh.${NC}"
-        exit 1
+        error_exit "acme.sh not found or not executable at ${ACME_PATH}/acme.sh."
     fi
 }
 
-# Generate Nginx configuration
+# --------------------------------------------
+# Function: Generate Nginx Configuration
+# --------------------------------------------
 generate_nginx_config() {
-    echo -e "${ORANGE}SIVIUM SCRIPTS | Creating Nginx configuration for $HOSTNAME.${NC}"
+    local domain="$1"
+    local app_port="$2"
+
+    info_message "Creating Nginx configuration for $domain."
+
     cat <<EOL > "$NGINX_CONFIG"
 server {
     listen 80;
     listen 443 ssl;
-    server_name ${DOMAIN_NAME};
+    server_name ${domain};
 
-    ssl_certificate ${CERT_PATH}/${DOMAIN_NAME}.cer;
-    ssl_certificate_key ${CERT_PATH}/${DOMAIN_NAME}.key;
+    ssl_certificate ${CERT_PATH}/${domain}.cer;
+    ssl_certificate_key ${CERT_PATH}/${domain}.key;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
     location / {
-        proxy_pass http://localhost:${APP_PORT};
+        proxy_pass http://localhost:${app_port};
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -135,17 +214,44 @@ server {
     }
 }
 EOL
-#    cp "$NGINX_CONFIG" "$TARGET_CONFIG"
+
+    success_message "Nginx configuration generated at $NGINX_CONFIG."
 }
 
-# Main process
-if [ ! -f "$NGINX_CONFIG" ]; then
-    echo -e "${ORANGE}SIVIUM SCRIPTS | Configuration for $HOSTNAME not found, generating a new one.${NC}"
-    generate_nginx_config
-    check_certificate_expiration
-   # nginx -s reload
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${GREEN}Nginx reloaded with the new configuration for $HOSTNAME.${NC}"
-else
-    echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}Configuration for $HOSTNAME already exists. Checking SSL certificate expiration...${NC}"
-    check_certificate_expiration
-fi
+# --------------------------------------------
+# Main Process
+# --------------------------------------------
+main() {
+    # Ensure DOMAIN_NAME and HOSTNAME are set
+    if [ -z "${DOMAIN_NAME}" ] || [ -z "${HOSTNAME}" ]; then
+        error_exit "DOMAIN_NAME and HOSTNAME environment variables must be set."
+    fi
+
+    # Ensure APP_PORT is set
+    if [ -z "${APP_PORT}" ]; then
+        error_exit "APP_PORT environment variable must be set."
+    fi
+
+    # Generate Nginx configuration if it doesn't exist
+    if [ ! -f "$NGINX_CONFIG" ]; then
+        warn_message "Configuration for $HOSTNAME not found, generating a new one."
+        generate_nginx_config "$DOMAIN_NAME" "$APP_PORT"
+        
+        # Check SSL certificate expiration (which will renew if necessary)
+        check_certificate_expiration "$DOMAIN_NAME"
+        
+        # Reload Nginx to apply new configuration
+        info_message "Reloading Nginx to apply new configuration..."
+        nginx -s reload || error_exit "Failed to reload Nginx."
+        
+        success_message "Nginx reloaded with the new configuration for $HOSTNAME."
+    else
+        info_message "Configuration for $HOSTNAME already exists. Checking SSL certificate expiration..."
+        check_certificate_expiration "$DOMAIN_NAME"
+    fi
+}
+
+# --------------------------------------------
+# Execute Main Function
+# --------------------------------------------
+main
