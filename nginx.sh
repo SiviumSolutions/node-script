@@ -165,7 +165,7 @@ renew_certificate() {
         if [ $? -eq 0 ]; then
             info_message "SSL certificate obtained successfully for $domain."
         else
-            error_exit "Failed to obtain SSL certificate for $domain."
+            error "Failed to obtain SSL certificate for $domain."
         fi
     else
         error_exit "acme.sh not found or not executable at ${ACME_PATH}/acme.sh."
