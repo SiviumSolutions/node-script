@@ -119,7 +119,7 @@ check_dependencies() {
 # Function: Check Required Environment Variables
 # --------------------------------------------
 check_env_vars() {
-    required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME SERVER_PORT REGISTER_TOKEN)
+    required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME SERVER_PORT CLUSTER_CLOUD_REGISTER_TOKEN)
 
     missing_vars=()
 
@@ -157,10 +157,10 @@ register_container() {
 
     info_message "Registering container '$container_id' with external service..."
 
-    # Make POST request to registration endpoint with REGISTER_TOKEN for authentication
+    # Make POST request to registration endpoint with CLUSTER_CLOUD_REGISTER_TOKEN for authentication
     response=$(curl -s -w "\n%{http_code}" -X POST "$REGISTRATION_URL" \
         -H "Content-Type: application/json" \
-        -H "x-api-key: ${REGISTER_TOKEN}" \
+        -H "x-api-key: ${CLUSTER_CLOUD_REGISTER_TOKEN}" \
         -d "{\"containerId\": \"${container_id}\"}")
 
     # Extract body and status code
@@ -170,19 +170,21 @@ register_container() {
     if [ "$status_code" -eq 201 ]; then
         access_token=$(echo "$body" | jq -r '.accessToken')
         success_message "Container registered successfully."
-        echo -e "\n${ORANGE}SIVIUM SCRIPTS | ${GREEN}Please add the following line to your .env file:${NC}"
-        echo -e "${GREEN}CHECK_FILES_TOKEN=${access_token}${NC}"
-        echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}This token is available only once for this container.${NC}"
+        echo -e "${ORANGE}====================================CRITICAL ALERT=======================================${NC}"
+        echo -e "${ORANGE}===   ${RED}Please add the following line to your .env file:${NC}"
+        echo -e "${ORANGE}===   ${RED}CLUSTER_CLOUD_TOKEN=${access_token}${NC}"
+        echo -e "${ORANGE}===   ${YELLOW}This token is available only once for this container.${NC}"
+        echo -e "${ORANGE}=========================================================================================${NC}"
         # Export the token for current script session
-        export CHECK_FILES_TOKEN="$access_token"
+        export CLUSTER_CLOUD_TOKEN="$access_token"
         REGISTERED=true
     elif [ "$status_code" -eq 409 ]; then
         warn_message "Container is already registered."
-        if [ -n "$CHECK_FILES_TOKEN" ]; then
-            success_message "CHECK_FILES_TOKEN is already set in the environment."
+        if [ -n "$CLUSTER_CLOUD_TOKEN" ]; then
+            success_message "CLUSTER_CLOUD_TOKEN is already set in the environment."
         else
-            echo -e "\n${ORANGE}SIVIUM SCRIPTS | ${RED}Error: CHECK_FILES_TOKEN is not set in your .env file.${NC}"
-            echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Please add the existing CHECK_FILES_TOKEN to your .env file to proceed.${NC}"
+            echo -e "\n${ORANGE}SIVIUM SCRIPTS | ${RED}Error: CLUSTER_CLOUD_TOKEN is not set in your .env file.${NC}"
+            echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Please add the existing CLUSTER_CLOUD_TOKEN to your .env file to proceed.${NC}"
             exit 1
         fi
     else
@@ -199,7 +201,7 @@ verify_container() {
 
     info_message "Verifying nginx configurations for container '$container_id'..."
 
-    # Make GET request to verification endpoint with CHECK_FILES_TOKEN for authentication
+    # Make GET request to verification endpoint with CLUSTER_CLOUD_TOKEN for authentication
     response=$(curl -s -w "\n%{http_code}" -X GET "$VERIFICATION_URL?serverId=${container_id}&rootDomain=${DOMAIN_NAME}" \
         -H "Authorization: Bearer ${access_token}")
 
@@ -463,10 +465,10 @@ main() {
                 if [ -z "$HOSTNAME" ]; then
                     error_exit "HOSTNAME environment variable must be set to verify the container."
                 fi
-                if [ -n "$CHECK_FILES_TOKEN" ]; then
-                    verify_container "$HOSTNAME" "$CHECK_FILES_TOKEN"
+                if [ -n "$CLUSTER_CLOUD_TOKEN" ]; then
+                    verify_container "$HOSTNAME" "$CLUSTER_CLOUD_TOKEN"
                 else
-                    error_exit "CHECK_FILES_TOKEN is not set in your .env file. Please add it to proceed with verification."
+                    error_exit "CLUSTER_CLOUD_TOKEN is not set in your .env file. Please add it to proceed with verification."
                 fi
                 ;;
             force-renew)
