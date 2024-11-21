@@ -412,13 +412,16 @@ else
 fi
 
 # --------------------------------------------
-# Load Environment Variables from .env
+# Load Environment Variables
 # --------------------------------------------
 if [ -f ".env" ]; then
-  success_message ".env file found. Loading environment variables..."
-  export $(grep -v '^#' .env | xargs) || { error_exit "Failed to load environment variables from .env"; }
+    success_message ".env file found. Loading environment variables..."
+    set -o allexport
+    source .env
+    set +o allexport
+    success_message "Environment variables loaded successfully."
 else
-  error_exit ".env file not found. Proceeding without environment variables from .env"
+    error_exit ".env file not found. Please create a .env file with the required variables."
 fi
 
 # --------------------------------------------
@@ -574,7 +577,7 @@ info_message "Checking Sentry release..."
 # Setup Nginx
 # --------------------------------------------
 info_message "Setting up Nginx..."
-./nginx.sh || { error_exit "Nginx setup failed."; }
+./nginx.sh --verify --register || { error_exit "Nginx setup failed."; }
 
 # --------------------------------------------
 # Start Production Server

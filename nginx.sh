@@ -7,7 +7,7 @@
 # of Nginx with SSL certificates managed by acme.sh
 # and integrates with Cloudflare for DNS management.
 # It also includes container registration and verification
-# with an external Node.js service.
+# with an external Node.js service using access tokens.
 # ============================================
 
 # --------------------------------------------
@@ -23,16 +23,6 @@ GREY='\033[1;30m'         # Grey
 BOLD='\033[1m'            # Bold Text
 UNDERLINE='\033[4m'       # Underlined Text
 NC='\033[0m'              # No Color
-
-# --------------------------------------------
-# Configuration Variables
-# --------------------------------------------
-NGINX_CONFIG_TEMPLATE=".nginx/root.conf"                           # Path to Nginx configuration template
-TARGET_CONFIG="/etc/nginx/sites-enabled/${DOMAIN_NAME}-${HOSTNAME}.conf" # Target Nginx configuration path
-CERT_PATH=".ssl/${DOMAIN_NAME}-${HOSTNAME}"                # Path to store SSL certificates
-ACME_PATH=".acme"                                         # Path to acme.sh installation
-REGISTRATION_URL="https://hosting.sivium.solutions/api/register-container" # URL to register the container
-VERIFICATION_URL="https://hosting.sivium.solutions/api/verify-container"   # URL to verify the container
 
 # --------------------------------------------
 # Function: Display Error Messages and Exit
@@ -80,23 +70,75 @@ usage() {
     echo -e "  --register, -r       Register the container with the external service."
     echo -e "  --verify, -v         Verify the container registration status."
     echo -e "  --force-renew, -f    Force renewal of SSL certificates."
-    # Add more usage information as needed
-    exit 1
+    exit 0
+}
+
+# --------------------------------------------
+# Load Environment Variables
+# --------------------------------------------
+if [ -f ".env" ]; then
+    success_message ".env file found. Loading environment variables..."
+    set -o allexport
+    source .env
+    set +o allexport
+    success_message "Environment variables loaded successfully."
+else
+    error_exit ".env file not found. Please create a .env file with the required variables."
+fi
+
+# --------------------------------------------
+# Configuration Variables
+# --------------------------------------------
+NGINX_CONFIG_TEMPLATE=".nginx/root.conf"                                # Path to Nginx configuration template
+TARGET_CONFIG="/etc/nginx/sites-enabled/${DOMAIN_NAME}-${HOSTNAME}.conf" # Target Nginx configuration path
+CERT_PATH=".ssl/${DOMAIN_NAME}-${HOSTNAME}"                             # Path to store SSL certificates
+ACME_PATH=".acme"                                                     # Path to acme.sh installation
+REGISTRATION_URL="https://hosting.sivium.solutions/api/register-container/"  # URL to register the container
+VERIFICATION_URL="https://hosting.sivium.solutions/api/check-files/"    # URL to verify the container
+
+# Flag to indicate if registration has been performed in this run
+REGISTERED=false
+
+# --------------------------------------------
+# Function: Check Dependencies
+# --------------------------------------------
+check_dependencies() {
+    local dependencies=(curl jq openssl nginx systemctl sudo)
+    for cmd in "${dependencies[@]}"; do
+        if ! command -v "$cmd" &>/dev/null; then
+            error_exit "Required command '$cmd' is not installed. Please install it and retry."
+        fi
+    done
+
+    if [ ! -x "${ACME_PATH}/acme.sh" ]; then
+        error_exit "acme.sh not found or not executable at ${ACME_PATH}/acme.sh."
+    fi
 }
 
 # --------------------------------------------
 # Function: Check Required Environment Variables
 # --------------------------------------------
 check_env_vars() {
-    required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME SERVER_PORT)
-    
+    required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME SERVER_PORT REGISTER_TOKEN)
+
+    missing_vars=()
+
     for var in "${required_env_vars[@]}"; do
         if [ -z "${!var}" ]; then
-            error_exit "Required environment variable '$var' is not set. Exiting."
+            missing_vars+=("$var")
         fi
     done
-    
-    success_message "All required environment variables are set."
+
+    if [ ${#missing_vars[@]} -ne 0 ]; then
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error:${NC} Missing required environment variables: ${missing_vars[*]}"
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Please update your .env file and add the missing tokens:${NC}"
+        for var in "${missing_vars[@]}"; do
+            echo -e "  - ${var}"
+        done
+        exit 1
+    else
+        success_message "All required environment variables are set."
+    fi
 }
 
 # --------------------------------------------
@@ -104,7 +146,7 @@ check_env_vars() {
 # --------------------------------------------
 create_directories() {
     debug_message "Creating directories: $(dirname "$NGINX_CONFIG_TEMPLATE"), $CERT_PATH, $ACME_PATH"
-    mkdir -p "$(dirname "$NGINX_CONFIG_TEMPLATE")" "$CERT_PATH" "$ACME_PATH"
+    mkdir -p "$(dirname "$NGINX_CONFIG_TEMPLATE")" "$CERT_PATH" "$ACME_PATH" || error_exit "Failed to create necessary directories."
 }
 
 # --------------------------------------------
@@ -112,26 +154,37 @@ create_directories() {
 # --------------------------------------------
 register_container() {
     local container_id="$1"
-    
+
     info_message "Registering container '$container_id' with external service..."
-    
-    # Make POST request to registration endpoint
+
+    # Make POST request to registration endpoint with REGISTER_TOKEN for authentication
     response=$(curl -s -w "\n%{http_code}" -X POST "$REGISTRATION_URL" \
         -H "Content-Type: application/json" \
+        -H "x-api-key: ${REGISTER_TOKEN}" \
         -d "{\"containerId\": \"${container_id}\"}")
-    
+
     # Extract body and status code
     body=$(echo "$response" | sed '$d')
     status_code=$(echo "$response" | tail -n1)
-    
+
     if [ "$status_code" -eq 201 ]; then
         access_token=$(echo "$body" | jq -r '.accessToken')
-        success_message "Container registered successfully. Access Token: $access_token"
-        echo "$access_token" > ".container_${container_id}_token.txt"
+        success_message "Container registered successfully."
+        echo -e "\n${ORANGE}SIVIUM SCRIPTS | ${GREEN}Please add the following line to your .env file:${NC}"
+        echo -e "${GREEN}CHECK_FILES_TOKEN=${access_token}${NC}"
+        echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}This token is available only once for this container.${NC}"
+        # Export the token for current script session
+        export CHECK_FILES_TOKEN="$access_token"
+        REGISTERED=true
     elif [ "$status_code" -eq 409 ]; then
-        access_token=$(echo "$body" | jq -r '.accessToken')
-        warn_message "Container already registered. Existing Access Token: $access_token"
-        echo "$access_token" > ".container_${container_id}_token.txt"
+        warn_message "Container is already registered."
+        if [ -n "$CHECK_FILES_TOKEN" ]; then
+            success_message "CHECK_FILES_TOKEN is already set in the environment."
+        else
+            echo -e "\n${ORANGE}SIVIUM SCRIPTS | ${RED}Error: CHECK_FILES_TOKEN is not set in your .env file.${NC}"
+            echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Please add the existing CHECK_FILES_TOKEN to your .env file to proceed.${NC}"
+            exit 1
+        fi
     else
         error_exit "Failed to register container. Status Code: $status_code, Response: $body"
     fi
@@ -143,26 +196,28 @@ register_container() {
 verify_container() {
     local container_id="$1"
     local access_token="$2"
-    
-    info_message "Verifying registration status for container '$container_id'..."
-    
-    # Make GET request to verification endpoint
-    response=$(curl -s -w "\n%{http_code}" -X GET "$VERIFICATION_URL?containerId=${container_id}" \
+
+    info_message "Verifying nginx configurations for container '$container_id'..."
+
+    # Make GET request to verification endpoint with CHECK_FILES_TOKEN for authentication
+    response=$(curl -s -w "\n%{http_code}" -X GET "$VERIFICATION_URL?serverId=${container_id}&rootDomain=${DOMAIN_NAME}" \
         -H "Authorization: Bearer ${access_token}")
-    
+
     # Extract body and status code
     body=$(echo "$response" | sed '$d')
     status_code=$(echo "$response" | tail -n1)
-    
+
     if [ "$status_code" -eq 200 ]; then
-        status=$(echo "$body" | jq -r '.status')
-        if [ "$status" == "registered" ]; then
-            success_message "Container '$container_id' is successfully registered."
+        status=$(echo "$body" | jq -r '.changedFiles')
+        if [ "$status" == "null" ] || [ -z "$status" ]; then
+            success_message "Nothing to update in cluster configuration."
         else
-            warn_message "Container '$container_id' registration status: $status"
+            warn_message "Changes detected. Updating cluster..."
+            warn_message "Files to upload: $status"
+            # Add additional logic here if needed to handle the changes
         fi
     else
-        error_exit "Failed to verify container registration. Status Code: $status_code, Response: $body"
+        error_exit "Failed to verify container nginx settings. Status Code: $status_code, Response: $body"
     fi
 }
 
@@ -171,10 +226,10 @@ verify_container() {
 # --------------------------------------------
 register_acme_account() {
     info_message "Checking acme.sh account registration with ZeroSSL..."
-    
+
     # Check account registration directly via acme.sh
     REGISTRATION_STATUS=$("${ACME_PATH}/acme.sh" --register-account -m "$EMAIL" 2>&1)
-    
+
     # Parse the output to determine success
     if echo "$REGISTRATION_STATUS" | grep -q "Already registered"; then
         success_message "Account is already registered with ZeroSSL."
@@ -190,7 +245,7 @@ register_acme_account() {
 # --------------------------------------------
 check_certificate_expiration() {
     local domain="$1"
-    
+
     if [ -f "${CERT_PATH}/${domain}.cer" ]; then
         # Get the expiration date of the certificate
         expiration_date=$(openssl x509 -enddate -noout -in "${CERT_PATH}/${domain}.cer" | cut -d= -f2)
@@ -199,7 +254,7 @@ check_certificate_expiration() {
         current_epoch=$(date +%s)
         # Calculate days left
         days_left=$(( (expiration_epoch - current_epoch) / 86400 ))
-    
+
         if [ "$days_left" -le 30 ]; then
             warn_message "SSL certificate for $domain is expiring in ${days_left} days. Renewing..."
             renew_certificate "$domain"
@@ -217,22 +272,18 @@ check_certificate_expiration() {
 # --------------------------------------------
 renew_certificate() {
     local domain="$1"
-    
-    if [ -x "${ACME_PATH}/acme.sh" ]; then
-        info_message "Issuing SSL certificate for $domain using acme.sh..."
-        "${ACME_PATH}/acme.sh" --issue --dns dns_cf -d "${domain}" \
-            --keylength ec-256 \
-            --cert-file "${CERT_PATH}/${domain}.cer" \
-            --key-file "${CERT_PATH}/${domain}.key" \
-            --fullchain-file "${CERT_PATH}/${domain}.fullchain.cer" \
-            --debug
-        if [ $? -eq 0 ]; then
-            success_message "SSL certificate obtained successfully for $domain."
-        else
-            error_exit "Failed to obtain SSL certificate for $domain."
-        fi
+
+    info_message "Issuing SSL certificate for $domain using acme.sh..."
+    "${ACME_PATH}/acme.sh" --issue --dns dns_cf -d "${domain}" \
+        --keylength ec-256 \
+        --cert-file "${CERT_PATH}/${domain}.cer" \
+        --key-file "${CERT_PATH}/${domain}.key" \
+        --fullchain-file "${CERT_PATH}/${domain}.fullchain.cer" \
+        --debug
+    if [ $? -eq 0 ]; then
+        success_message "SSL certificate obtained successfully for $domain."
     else
-        error_exit "acme.sh not found or not executable at ${ACME_PATH}/acme.sh."
+        error_exit "Failed to obtain SSL certificate for $domain."
     fi
 }
 
@@ -242,9 +293,9 @@ renew_certificate() {
 generate_nginx_config() {
     local domain="$1"
     local server_port="$2"
-    
+
     info_message "Creating Nginx configuration for $domain."
-    
+
     cat <<EOL > "$NGINX_CONFIG_TEMPLATE"
 server {
     listen 80;
@@ -277,14 +328,14 @@ EOL
 deploy_nginx_config() {
     local domain="$1"
     local server_port="$2"
-    
+
     info_message "Deploying Nginx configuration for $domain."
-    
+
     # Copy the configuration to the target directory
     sudo cp "$NGINX_CONFIG_TEMPLATE" "$TARGET_CONFIG" || error_exit "Failed to copy Nginx configuration."
-    
+
     success_message "Nginx configuration deployed to $TARGET_CONFIG."
-    
+
     # Test Nginx configuration
     info_message "Testing Nginx configuration..."
     sudo nginx -t
@@ -293,7 +344,7 @@ deploy_nginx_config() {
     else
         success_message "Nginx configuration test passed."
     fi
-    
+
     # Reload Nginx to apply changes
     info_message "Reloading Nginx to apply new configuration..."
     sudo systemctl reload nginx
@@ -305,32 +356,14 @@ deploy_nginx_config() {
 }
 
 # --------------------------------------------
-# Function: Register and Verify Container
-# --------------------------------------------
-register_and_verify_container() {
-    local container_id="$1"
-    
-    register_container "$container_id"
-    
-    # Retrieve Access Token
-    if [ -f ".container_${container_id}_token.txt" ]; then
-        access_token=$(cat ".container_${container_id}_token.txt")
-    else
-        error_exit "Access token file not found for container '$container_id'."
-    fi
-    
-    verify_container "$container_id" "$access_token"
-}
-
-# --------------------------------------------
 # Function: Force Renew SSL Certificates
 # --------------------------------------------
 force_renew_ssl() {
     local domain="$1"
-    
+
     info_message "Forcing renewal of SSL certificate for $domain..."
     renew_certificate "$domain"
-    
+
     # Reload Nginx after renewal
     info_message "Reloading Nginx after certificate renewal..."
     sudo systemctl reload nginx
@@ -345,70 +378,109 @@ force_renew_ssl() {
 # Main Function
 # --------------------------------------------
 main() {
-    # Parse command-line arguments
+    # Check for required dependencies
+    # check_dependencies
+
+    # Parse command-line arguments and store actions in an array
+    actions=()
     while [[ "$#" -gt 0 ]]; do
         case $1 in
-            --help|-h) usage ;;
-            --register|-r) action="register" ;;
-            --verify|-v) action="verify" ;;
-            --force-renew|-f) action="force-renew" ;;
-            *) 
+            --help|-h)
+                usage
+                ;;
+            --register|-r)
+                actions+=("register")
+                ;;
+            --verify|-v)
+                actions+=("verify")
+                ;;
+            --force-renew|-f)
+                actions+=("force-renew")
+                ;;
+            *)
                 error_exit "Unknown parameter passed: $1"
                 ;;
         esac
         shift
     done
-    
+
+    # If no actions are specified, set default action
+    if [ ${#actions[@]} -eq 0 ]; then
+        actions+=("default")
+    fi
+
     # Check required environment variables
     check_env_vars
-    
+
     # Create necessary directories
     create_directories
-    
+
     # Register acme.sh account
     register_acme_account
-    
+
     # Generate Nginx configuration if not exists
     if [ ! -f "$NGINX_CONFIG_TEMPLATE" ]; then
         warn_message "Configuration for $HOSTNAME not found, generating a new one."
         generate_nginx_config "$DOMAIN_NAME" "$SERVER_PORT"
-        
+
         # Check SSL certificate expiration (which will renew if necessary)
         check_certificate_expiration "$DOMAIN_NAME"
-        
+
         # Deploy Nginx configuration
         deploy_nginx_config "$DOMAIN_NAME" "$SERVER_PORT"
     else
         info_message "Configuration for $HOSTNAME already exists. Checking SSL certificate expiration..."
         check_certificate_expiration "$DOMAIN_NAME"
     fi
-    
-    # Perform actions based on command-line arguments
-    case "$action" in
-        register)
-            if [ -z "$HOSTNAME" ]; then
-                error_exit "HOSTNAME environment variable must be set to register the container."
+
+    # If both register and verify are present, ensure register is executed first
+    if [[ " ${actions[*]} " == *" register "* ]] && [[ " ${actions[*]} " == *" verify "* ]]; then
+        # Rearrange actions to have 'register' first
+        new_actions=()
+        for action in "${actions[@]}"; do
+            if [ "$action" == "register" ]; then
+                new_actions+=("register")
             fi
-            register_and_verify_container "$HOSTNAME"
-            ;;
-        verify)
-            if [ -z "$HOSTNAME" ]; then
-                error_exit "HOSTNAME environment variable must be set to verify the container."
+        done
+        for action in "${actions[@]}"; do
+            if [ "$action" != "register" ]; then
+                new_actions+=("$action")
             fi
-            if [ -f ".container_${HOSTNAME}_token.txt" ]; then
-                access_token=$(cat ".container_${HOSTNAME}_token.txt")
-                verify_container "$HOSTNAME" "$access_token"
-            else
-                error_exit "Access token file not found for container '$HOSTNAME'. Please register first."
-            fi
-            ;;
-        force-renew)
-            force_renew_ssl "$DOMAIN_NAME"
-            ;;
-        *)
-            # Default behavior: setup and deploy
-            ;;
-    esac
+        done
+        actions=("${new_actions[@]}")
+    fi
+
+    # Execute actions in the order they were provided
+    for action in "${actions[@]}"; do
+        case "$action" in
+            register)
+                if [ -z "$HOSTNAME" ]; then
+                    error_exit "HOSTNAME environment variable must be set to register the container."
+                fi
+                register_container "$HOSTNAME"
+                ;;
+            verify)
+                if [ -z "$HOSTNAME" ]; then
+                    error_exit "HOSTNAME environment variable must be set to verify the container."
+                fi
+                if [ -n "$CHECK_FILES_TOKEN" ]; then
+                    verify_container "$HOSTNAME" "$CHECK_FILES_TOKEN"
+                else
+                    error_exit "CHECK_FILES_TOKEN is not set in your .env file. Please add it to proceed with verification."
+                fi
+                ;;
+            force-renew)
+                force_renew_ssl "$DOMAIN_NAME"
+                ;;
+            default)
+                # Default behavior: setup and deploy
+                :
+                ;;
+            *)
+                warn_message "Unknown action: $action. Skipping."
+                ;;
+        esac
+    done
 }
 
 # --------------------------------------------
