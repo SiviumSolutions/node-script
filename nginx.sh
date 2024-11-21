@@ -109,26 +109,16 @@ mkdir -p "$(dirname "$NGINX_CONFIG")" "$CERT_PATH" "$ACME_PATH"
 # --------------------------------------------
 info_message "Checking acme.sh account registration with ZeroSSL..."
 
-if [ ! -f "${ACME_PATH}/account.conf" ]; then
-    # Attempt to register the account
-    info_message "Registering acme.sh account with email: $EMAIL"
-    "${ACME_PATH}/acme.sh" --register-account -m "$EMAIL"
+# Check account registration directly via acme.sh
+REGISTRATION_STATUS=$("${ACME_PATH}/acme.sh" --register-account -m "$EMAIL" 2>&1)
 
-    # Check if the registration was successful by looking for account.conf
-    if [ -f "${ACME_PATH}/account.conf" ]; then
-        success_message "Account successfully registered with ZeroSSL."
-    else
-        # If account.conf is missing, check for errors in the http.header
-        if [ -f "${ACME_PATH}/http.header" ]; then
-            error "Registration failed. Checking http.header for details..."
-            cat "${ACME_PATH}/http.header"
-        else
-            error "Registration failed, and no http.header file found for debugging."
-        fi
-        # Exit to avoid further execution if registration fails
-    fi
+# Parse the output to determine success
+if echo "$REGISTRATION_STATUS" | grep -q "Already registered"; then
+    success_message "Account is already registered with ZeroSSL."
+elif echo "$REGISTRATION_STATUS" | grep -q "ACCOUNT_THUMBPRINT"; then
+    success_message "Account successfully registered with ZeroSSL."
 else
-    success_message "acme.sh account is already registered."
+    warning_message "Account registration failed. Skipping registration and proceeding."
 fi
 
 # --------------------------------------------
