@@ -172,9 +172,11 @@ register_container() {
         success_message "Container registered successfully."
         echo -e "${ORANGE}====================================CRITICAL ALERT=======================================${NC}"
         echo -e "${ORANGE}===${NC}"
-        echo -e "${ORANGE}===             ${YELLOW}}Please add the following line to your .env file:${NC}"
-        echo -e "${ORANGE}===             ${GREEN}CLUSTER_CLOUD_TOKEN=${access_token}${NC}"
         echo -e "${ORANGE}===             ${YELLOW}This token is available only once for this container.${NC}"
+        echo -e "${ORANGE}===             ${YELLOW}Please add the following line to your .env file:${NC}"
+        echo -e "${ORANGE}===${NC}"
+        echo -e "${ORANGE}===             ${GREEN}CLUSTER_CLOUD_TOKEN=${access_token}${NC}"
+        echo -e "${ORANGE}===${NC}"
         echo -e "${ORANGE}===${NC}"
         echo -e "${ORANGE}=========================================================================================${NC}"
         # Export the token for current script session
