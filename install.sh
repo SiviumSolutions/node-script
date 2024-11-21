@@ -61,7 +61,7 @@ if [ "$WITH_UPDATE" = true ]; then
   info_message "Downloading additional scripts..."
 
   for i in "${!SCRIPT_URLS[@]}"; do
-    curl -o "${SCRIPT_NAMES[i]}" "${SCRIPT_URLS[i]}" || error_exit "Failed to download ${SCRIPT_NAMES[i]}"
+    curl -o "${SCRIPT_NAMES[i]}" "${SCRIPT_URLS[i]}" > /dev/null 2>&1 || error_exit "Failed to download ${SCRIPT_NAMES[i]}"
   done
 
   # Set executable permissions
