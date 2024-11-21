@@ -179,11 +179,11 @@ register_container() {
         export CLUSTER_CLOUD_TOKEN="$access_token"
         REGISTERED=true
     elif [ "$status_code" -eq 409 ]; then
-        warn_message "Container is already registered."
+        success_message "Container is already registered."
         if [ -n "$CLUSTER_CLOUD_TOKEN" ]; then
-            success_message "CLUSTER_CLOUD_TOKEN is already set in the environment."
+            info_message "CLUSTER_CLOUD_TOKEN is already set in the environment."
         else
-            echo -e "\n${ORANGE}SIVIUM SCRIPTS | ${RED}Error: CLUSTER_CLOUD_TOKEN is not set in your .env file.${NC}"
+            echo -e "${ORANGE}SIVIUM SCRIPTS | ${RED}Error: CLUSTER_CLOUD_TOKEN is not set in your .env file.${NC}"
             echo -e "${ORANGE}SIVIUM SCRIPTS | ${YELLOW}Please add the existing CLUSTER_CLOUD_TOKEN to your .env file to proceed.${NC}"
             exit 1
         fi
