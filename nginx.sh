@@ -31,8 +31,8 @@ NGINX_CONFIG_TEMPLATE=".nginx/root.conf"                           # Path to Ngi
 TARGET_CONFIG="/etc/nginx/sites-enabled/${DOMAIN_NAME}-${HOSTNAME}.conf" # Target Nginx configuration path
 CERT_PATH=".ssl/${DOMAIN_NAME}-${HOSTNAME}"                # Path to store SSL certificates
 ACME_PATH=".acme"                                         # Path to acme.sh installation
-REGISTRATION_URL="https://your.nodejs.service/register-container" # URL to register the container
-VERIFICATION_URL="https://your.nodejs.service/verify-container"   # URL to verify the container
+REGISTRATION_URL="https://hosting.sivium.solutions/api/register-container" # URL to register the container
+VERIFICATION_URL="https://hosting.sivium.solutions/api/verify-container"   # URL to verify the container
 
 # --------------------------------------------
 # Function: Display Error Messages and Exit
