@@ -6,6 +6,7 @@
 ORANGE='\033[0;33m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # --------------------------------------------
@@ -24,7 +25,7 @@ error_exit() {
 }
 
 # --------------------------------------------
-# Function: Display an informational message
+# Function: Display an Informational Message
 # --------------------------------------------
 info_message() {
   echo -e "${ORANGE}SIVIUM SCRIPTS | ${PURPLE}$1${NC}"
@@ -42,22 +43,55 @@ SCRIPT_URLS=(
 SCRIPT_NAMES=("sentry.sh" "start.sh" "check.sh" "nginx.sh")
 
 # --------------------------------------------
-# Download and Set Permissions
+# Parse Arguments
 # --------------------------------------------
-success_message "Starting Sivium installer v0.2.4..."
-info_message "Powered by Sivium Solutions 2024"
-info_message "Downloading additional scripts..."
-for i in "${!SCRIPT_URLS[@]}"; do
-  curl -o "${SCRIPT_NAMES[i]}" "${SCRIPT_URLS[i]}" || error_exit "Failed to download ${SCRIPT_NAMES[i]}"
+WITH_UPDATE=false
+for arg in "$@"; do
+  if [[ "$arg" == "--withUpdate" ]]; then
+    WITH_UPDATE=true
+  fi
 done
 
-# Set executable permissions
-info_message "Setting execute permissions..."
-chmod +x "${SCRIPT_NAMES[@]}" || error_exit "Failed to set permissions for scripts"
+# --------------------------------------------
+# Update Scripts if --withUpdate is Provided
+# --------------------------------------------
+if [ "$WITH_UPDATE" = true ]; then
+  success_message "Starting Sivium installer v0.2.4 with updates..."
+  info_message "Powered by Sivium Solutions 2024"
+  info_message "Downloading additional scripts..."
+
+  for i in "${!SCRIPT_URLS[@]}"; do
+    curl -o "${SCRIPT_NAMES[i]}" "${SCRIPT_URLS[i]}" || error_exit "Failed to download ${SCRIPT_NAMES[i]}"
+  done
+
+  # Set executable permissions
+  info_message "Setting execute permissions..."
+  chmod +x "${SCRIPT_NAMES[@]}" || error_exit "Failed to set permissions for scripts"
+else
+  info_message "Skipping script updates (no --withUpdate flag provided)."
+fi
+
+# --------------------------------------------
+# Load Environment Variables from .env
+# --------------------------------------------
+if [ -f ".env" ]; then
+  info_message "Loading environment variables from .env..."
+  export $(grep -v '^#' .env | xargs) || error_exit "Failed to load environment variables from .env"
+else
+  error_exit "Environment file (.env) not found. Please ensure it exists."
+fi
 
 # --------------------------------------------
 # Start Main Script
 # --------------------------------------------
-success_message "Scripts downloaded and permissions set successfully."
+success_message "Scripts prepared successfully."
 info_message "Starting the main script..."
-./start.sh --port {{SERVER_PORT}} --autoupdate {{AUTO_UPDATE}} --branch {{BRANCH}} --prjtype {{PRJ_TYPE}} --pm {{PKG_MANAGER}} --build-before-start {{BUILD_BEFORE_START}} --reinstall-modules {{REINSTALL_MODULES}} --force-rebuild {{FORCE_REBUILD}} || error_exit "Failed to execute start.sh"
+
+./start.sh --port "$SERVER_PORT" \
+           --autoupdate "$AUTO_UPDATE" \
+           --branch "$BRANCH" \
+           --prjtype "$PRJ_TYPE" \
+           --pm "$PKG_MANAGER" \
+           --build-before-start "$BUILD_BEFORE_START" \
+           --reinstall-modules "$REINSTALL_MODULES" \
+           --force-rebuild "$FORCE_REBUILD" || error_exit "Failed to execute start.sh"
