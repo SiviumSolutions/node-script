@@ -160,8 +160,8 @@ renew_certificate() {
             --keylength ec-256 \
             --cert-file "${CERT_PATH}/${domain}.cer" \
             --key-file "${CERT_PATH}/${domain}.key" \
-            --fullchain-file "${CERT_PATH}/${domain}.fullchain.cer"
-
+            --fullchain-file "${CERT_PATH}/${domain}.fullchain.cer" \
+            --debug
         if [ $? -eq 0 ]; then
             info_message "SSL certificate obtained successfully for $domain."
         else
