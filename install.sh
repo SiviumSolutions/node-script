@@ -60,4 +60,4 @@ chmod +x "${SCRIPT_NAMES[@]}" || error_exit "Failed to set permissions for scrip
 # --------------------------------------------
 success_message "Scripts downloaded and permissions set successfully."
 info_message "Starting the main script..."
-./start.sh || error_exit "Failed to execute start.sh"
+./start.sh --port {{SERVER_PORT}} --autoupdate {{AUTO_UPDATE}} --branch {{BRANCH}} --prjtype {{PRJ_TYPE}} --pm {{PKG_MANAGER}} --build-before-start {{BUILD_BEFORE_START}} --reinstall-modules {{REINSTALL_MODULES}} --force-rebuild {{FORCE_REBUILD}} || error_exit "Failed to execute start.sh"
