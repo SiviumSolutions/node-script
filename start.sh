@@ -487,7 +487,18 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   else
     success_message "No changes detected in lock files between local and remote."
   fi
+  # --------------------------------------------
+  # Ensure Node Modules are Installed
+  # --------------------------------------------
 
+  info_message "Checking node modules..."
+  if ! directory_exists "node_modules"; then
+    info_message "Installing node modules..."
+    $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
+      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+    done || { error_exit "Failed to install node modules."; }
+  fi
+fi
   # --------------------------------------------
   # Consolidated Build Logic
   # --------------------------------------------
@@ -515,19 +526,6 @@ if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   else
     success_message "No build actions required."
   fi
-
-  # --------------------------------------------
-  # Ensure Node Modules are Installed
-  # --------------------------------------------
-
-  info_message "Checking node modules..."
-  if ! directory_exists "node_modules"; then
-    info_message "Installing node modules..."
-    $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-    done || { error_exit "Failed to install node modules."; }
-  fi
-fi
 # --------------------------------------------
 # Handle Force Rebuild (If Not Covered Above)
 # --------------------------------------------

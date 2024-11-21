@@ -126,7 +126,6 @@ if [ ! -f "${ACME_PATH}/account.conf" ]; then
             error "Registration failed, and no http.header file found for debugging."
         fi
         # Exit to avoid further execution if registration fails
-        exit 1
     fi
 else
     success_message "acme.sh account is already registered."
