@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2024-11-21T09:07:41+00:00",
+    "exported_at": "2024-11-21T10:00:50+00:00",
     "name": "Sivium Node Pro",
     "author": "maxnomad123@gmail.com",
     "description": "a generic node.js egg\r\n\r\nThis will clone a git repo. it defaults to master if no branch is specified.\r\n\r\nInstalls the node_modules on install. If you set user_upload then I assume you know what you are doing.",
@@ -21,10 +21,10 @@
         "Nodejs 12": "ghcr.io\/siviumsolutions\/nodepro_12"
     },
     "file_denylist": [],
-    "startup": ".\/start.sh --port {{SERVER_PORT}} --autoupdate {{AUTO_UPDATE}} --branch {{BRANCH}} --prjtype {{PRJ_TYPE}} --pm {{PKG_MANAGER}} --build-before-start {{BUILD_BEFORE_START}} --reinstall-modules {{REINSTALL_MODULES}} --force-rebuild {{FORCE_REBUILD}}",
+    "startup": ".\/install.sh --withUpdate",
     "config": {
         "files": "{}",
-        "startup": "{\r\n    \"done\": [\r\n        \"Create your first administrator \\ud83d\\udcbb by going to the administration panel at:\"\r\n    ]\r\n}",
+        "startup": "{\r\n    \"done\": [\r\n        \"Create your first administrator \\ud83d\\udcbb by going to the administration panel at:\",\r\n        \"Loaded env from \/home\/container\/.env\"\r\n    ]\r\n}",
         "logs": "{}",
         "stop": "^^C"
     },
