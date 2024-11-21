@@ -88,7 +88,7 @@ usage() {
 # Function: Check Required Environment Variables
 # --------------------------------------------
 check_env_vars() {
-    required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME SERVER_PORT GITHUB_WEBHOOK_SECRET BEARER_TOKEN ENDPOINT API_KEY)
+    required_env_vars=(CF_Token CF_Account_ID CF_Zone_ID EMAIL DOMAIN_NAME HOSTNAME SERVER_PORT)
     
     for var in "${required_env_vars[@]}"; do
         if [ -z "${!var}" ]; then
