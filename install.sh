@@ -94,4 +94,12 @@ info_message "Starting the main script..."
            --pm "$PKG_MANAGER" \
            --build-before-start "$BUILD_BEFORE_START" \
            --reinstall-modules "$REINSTALL_MODULES" \
-           --force-rebuild "$FORCE_REBUILD" || error_exit "Failed to execute start.sh"
+           --force-rebuild "$FORCE_REBUILD" \
+           --enable-sentry "$ENABLE_SENTRY" \
+           --enable-nginx "$ENABLE_NGINX" \
+           --repo "$GIT_ADDRESS" \
+           --mode "$MODE" \
+           --cmd-prod "$CUSTOM_CMD_PROD" \
+           --cmd-dev "$CUSTOM_CMD_DEV" \
+           --enable-log-service "$ENABLE_LOG_SERVICE" \
+           || error_exit "Failed to execute start.sh"

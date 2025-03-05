@@ -4,13 +4,14 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2024-12-08T16:04:51+00:00",
+    "exported_at": "2025-03-05T13:27:02+00:00",
     "name": "Sivium Node Pro",
     "author": "maxnomad123@gmail.com",
     "description": "a generic node.js egg\r\n\r\nThis will clone a git repo. it defaults to master if no branch is specified.\r\n\r\nInstalls the node_modules on install. If you set user_upload then I assume you know what you are doing.",
     "features": null,
     "docker_images": {
         "Nodejs 23": "ghcr.io\/siviumsolutions\/nodepro_23",
+        "Nodejs 22": "ghcr.io\/siviumsolutions\/nodepro_22",
         "Nodejs 21": "ghcr.io\/siviumsolutions\/nodepro_21",
         "Nodejs 20": "ghcr.io\/siviumsolutions\/nodepro_20",
         "Nodejs 19": "ghcr.io\/siviumsolutions\/nodepro_19",
@@ -117,6 +118,16 @@
             "field_type": "text"
         },
         {
+            "name": "Application run mode",
+            "description": "",
+            "env_variable": "MODE",
+            "default_value": "production",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|in:development,production",
+            "field_type": "text"
+        },
+        {
             "name": "Project Type",
             "description": "Specify the type of project. Options are backend, frontend, api, or microservice.",
             "env_variable": "PRJ_TYPE",
@@ -137,6 +148,56 @@
             "field_type": "text"
         },
         {
+            "name": "Enable sentry plugin",
+            "description": "",
+            "env_variable": "ENABLE_SENTRY",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable nginx plugin",
+            "description": "",
+            "env_variable": "ENABLE_NGINX",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable log service",
+            "description": "",
+            "env_variable": "ENABLE_LOG_SERVICE",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Production run command",
+            "description": "",
+            "env_variable": "CUSTOM_CMD_PROD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Dev run command",
+            "description": "",
+            "env_variable": "CUSTOM_CMD_DEV",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
             "name": "User email",
             "description": "Specify user email for registering in domain services (CloudFlare).",
             "env_variable": "EMAIL",
@@ -153,7 +214,7 @@
             "default_value": "",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string",
+            "rules": "nullable|string",
             "field_type": "text"
         }
     ]

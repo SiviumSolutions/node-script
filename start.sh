@@ -25,36 +25,48 @@ NC='\033[0m' # No Color
 # --------------------------------------------
 # Initialize Variables with Default Values
 # --------------------------------------------
-PORT=""                        # Required
+SERVER_PORT=""                 # Required
 AUTO_UPDATE="1"                # Default: 1 (enabled)
-TARGET_BRANCH="main"           # Default: main
-PRJ_TYPE=""                    # Required
-PKG_MANAGER=""                 # Required
+BRANCH="main"           # Default: main
+GIT_REPO_ADDRESS=""            # Default: empty -> skip Git steps if empty
+PRJ_TYPE="microservice"        # Default: (microservice)
+PKG_MANAGER="pnpm"             # Default: (pnpm)
 BUILD_BEFORE_START="1"         # Default: 1 (enabled)
 REINSTALL_MODULES="0"          # Default: 0 (disabled)
 FORCE_REBUILD="0"              # Default: 0 (disabled)
+ENABLE_SENTRY="0"              # Default: 0 (disabled)
+ENABLE_NGINX="0"               # Default: 0 (disabled)
+ENABLE_LOG_SERVICE="0"        # Default: 0 (disabled)
+MODE="production"              # Default: production
+CUSTOM_CMD_PROD="production"   # Default: production
+CUSTOM_CMD_DEV="dev"           # Default: development
 
 LOCK_FILES=("package-lock.json" "yarn.lock" "pnpm-lock.yaml" "bun.lockb")
 SKIP_UPDATE=true
 BUILD_REQUIRED=false
 
+
+
 # --------------------------------------------
 # Function: Display Usage Instructions
 # --------------------------------------------
 usage() {
-  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Usage:${NC} $0 --port <port> --prjtype <backend|frontend|api|microservice> --pm <bun|pnpm|yarn|npm> [options]"
+  echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Usage:${NC} $0 --port <port> [options]"
   echo -e ""
   echo -e "Required arguments:"
   echo -e "  --port <port>                          Set the application port (1-65535)."
-  echo -e "  --prjtype <type>                       Project type: backend, frontend, api, or microservice."
-  echo -e "  --pm <package_manager>                 Package manager: bun, pnpm, yarn, or npm."
   echo -e ""
   echo -e "Optional arguments (default values shown in parentheses):"
+  echo -e "  --prjtype <type>                       Project type: backend, frontend, api, or microservice."
+  echo -e "  --pm <package_manager>                 Package manager: bun, pnpm, yarn, or npm."
   echo -e "  --autoupdate <1|0>                     Enable auto-update (1)."
   echo -e "  --branch <branch_name>                 Target Git branch (main)."
   echo -e "  --build-before-start <1|0>             Enable build before starting (1)."
   echo -e "  --reinstall-modules <1|0>              Reinstall node modules on startup (0)."
   echo -e "  --force-rebuild <1|0>                  Force the application to rebuild on startup (0)."
+  echo -e "  --enable-sentry <1|0>                  Enable sentry plugin (0)."
+  echo -e "  --enable-nginx <1|0>                   Enable Nginx steps entirely (0)."
+  echo -e "  --mode <production|development>        Application mode to run (production)."
   echo -e "  --help, -h                             Display this help message."
   echo -e ""
   echo -e "Example:"
@@ -130,7 +142,7 @@ while [[ $# -gt 0 ]]; do
 
   case $key in
     --port)
-      PORT="$2"
+      SERVER_PORT="$2"
       shift # past argument
       shift # past value
       ;;
@@ -140,7 +152,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --branch)
-      TARGET_BRANCH="$2"
+      BRANCH="$2"
       shift
       shift
       ;;
@@ -169,6 +181,41 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    --enable-sentry)
+      ENABLE_SENTRY="$2"
+      shift
+      shift
+      ;;
+    --enable-nginx)
+      ENABLE_NGINX="$2"
+      shift
+      shift
+      ;;
+    --repo)
+      GIT_REPO_ADDRESS="$2"
+      shift
+      shift
+      ;;
+    --mode)
+      MODE="$2"
+      shift
+      shift
+      ;;
+    --cmd-prod)
+      CUSTOM_CMD_PROD="$2"
+      shift
+      shift
+      ;;
+    --cmd-dev)
+      CUSTOM_CMD_DEV="$2"
+      shift
+      shift
+      ;;
+    --enable-log-service)
+      ENABLE_LOG_SERVICE="$2"
+      shift
+      shift
+      ;;
     --help|-h)
       usage
       ;;
@@ -181,7 +228,7 @@ done
 # --------------------------------------------
 # Validate Required Arguments
 # --------------------------------------------
-if [[ -z "$PORT" ]]; then
+if [[ -z "$SERVER_PORT" ]]; then
   error "--port argument is required."
 fi
 
@@ -196,7 +243,7 @@ fi
 # --------------------------------------------
 # Validate PORT Argument (1-65535)
 # --------------------------------------------
-if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+if ! [[ "$SERVER_PORT" =~ ^[0-9]+$ ]] || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; then
   error "--port must be a number between 1 and 65535."
 fi
 
@@ -206,9 +253,9 @@ fi
 validate_boolean_option "$AUTO_UPDATE" "autoupdate"
 
 # --------------------------------------------
-# Validate TARGET_BRANCH Argument (Git Branch Naming)
+# Validate BRANCH Argument (Git Branch Naming)
 # --------------------------------------------
-if ! [[ "$TARGET_BRANCH" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
+if ! [[ "$BRANCH" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
   error "--branch contains invalid characters."
 fi
 
@@ -229,12 +276,21 @@ if [[ ! " ${ALLOWED_PKG_MANAGERS[@]} " =~ " $PKG_MANAGER " ]]; then
 fi
 
 # --------------------------------------------
+# Validate MODE Argument
+# --------------------------------------------
+if [[ "$MODE" != "production" && "$MODE" != "development" ]]; then
+  error "--mode must be 'production' or 'development'."
+fi
+
+# --------------------------------------------
 # Validate Optional Boolean Arguments (1 or 0)
 # --------------------------------------------
 validate_boolean_option "$BUILD_BEFORE_START" "build-before-start"
 validate_boolean_option "$REINSTALL_MODULES" "reinstall-modules"
 validate_boolean_option "$FORCE_REBUILD" "force-rebuild"
-
+validate_boolean_option "$ENABLE_SENTRY" "enable-sentry"
+validate_boolean_option "$ENABLE_NGINX" "enable-nginx"
+validate_boolean_option "$ENABLE_LOG_SERVICE" "enable-log-service"
 # --------------------------------------------
 # Display Initialization Message
 # --------------------------------------------
@@ -243,8 +299,8 @@ info_message "Installing server environment..."
 # --------------------------------------------
 # Export Environment Variables
 # --------------------------------------------
-export PORT="$PORT"
-export CLUSTER_PORT=$((PORT + 1))
+export PORT="$SERVER_PORT"
+export CLUSTER_PORT=$((SERVER_PORT + 1))
 
 # --------------------------------------------
 # Determine Command Prefix Based on Package Manager
@@ -265,15 +321,18 @@ esac
 # Display Configuration Summary
 # --------------------------------------------
 success_message "Configuration:"
-echo -e "${YELLOW}  PORT: $PORT${NC}"
+echo -e "${YELLOW}  SERVER_PORT: $SERVER_PORT${NC}"
 echo -e "${YELLOW}  CLUSTER_PORT: $CLUSTER_PORT${NC}"
 echo -e "${YELLOW}  AUTO_UPDATE: $AUTO_UPDATE${NC}"
 echo -e "${YELLOW}  BUILD_BEFORE_START: $BUILD_BEFORE_START${NC}"
 echo -e "${YELLOW}  REINSTALL_MODULES: $REINSTALL_MODULES${NC}"
 echo -e "${YELLOW}  FORCE_REBUILD: $FORCE_REBUILD${NC}"
-echo -e "${YELLOW}  TARGET_BRANCH: $TARGET_BRANCH${NC}"
+echo -e "${YELLOW}  ENABLE_SENTRY: $ENABLE_SENTRY${NC}"
+echo -e "${YELLOW}  ENABLE_NGINX: $ENABLE_NGINX${NC}"
+echo -e "${YELLOW}  BRANCH: $BRANCH${NC}"
 echo -e "${YELLOW}  PRJ_TYPE: $PRJ_TYPE${NC}"
 echo -e "${YELLOW}  PACKAGE_MANAGER: $PKG_MANAGER${NC}"
+echo -e "${YELLOW}  MODE: $MODE${NC}" 
 echo ""
 
 # --------------------------------------------
@@ -324,93 +383,96 @@ fi
 # --------------------------------------------
 # Git Actions: Reset and Pull if Needed
 # --------------------------------------------
-if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
-  if is_git_up_to_date; then
-    success_message "Project core is already up to date."
-    success_message "Skip pulling."
-    SKIP_UPDATE=true
-  else
-    info_message "Updating project core from repository..."
-
-    PRE_PULL_COMMIT=$(git rev-parse HEAD)
-    info_message "Pre-pull commit: ${YELLOW}$PRE_PULL_COMMIT${NC}"
-
-    git reset --hard || { error_exit "Git reset failed."; }
-    git pull || { error_exit "Git pull failed."; }
-
-    POST_PULL_COMMIT=$(git rev-parse HEAD)
-    success_message "Updated commit: ${YELLOW}$POST_PULL_COMMIT${NC}"
-
-    CHANGED_FILES=$(git diff --name-only $PRE_PULL_COMMIT $POST_PULL_COMMIT)
-
-    CHANGED_LOCK_FILES=$(echo "$CHANGED_FILES" | grep -E '^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb)$')
-    if [ -n "$CHANGED_LOCK_FILES" ]; then
-      info_message "Changes detected in lock files:"
-      debug_message "$CHANGED_LOCK_FILES"
-
-    else
-      success_message "No changes detected in lock files."
-    fi
-
-    if [ -f "tsconfig.json" ]; then
-      if command -v jq >/dev/null 2>&1; then
-        INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json | sed 's|^\./||')
-        EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json | sed 's|^\./||')
-      else
-        error "Jq not found. Skipping TypeScript files check."
-        INCLUDE_PATTERNS=""
-        EXCLUDE_PATTERNS=""
-      fi
-
-      CHANGED_TS_FILES=""
-
-      while IFS= read -r file; do
-        MATCH_INCLUDE=false
-        for pattern in $INCLUDE_PATTERNS; do
-          # Використовуємо bash glob matching
-          if [[ "$file" == $pattern ]]; then
-            MATCH_INCLUDE=true
-            break
-          fi
-        done
-
-        if [ "$MATCH_INCLUDE" = false ]; then
-          continue
-        fi
-
-        MATCH_EXCLUDE=false
-        for pattern in $EXCLUDE_PATTERNS; do
-          if [[ "$file" == $pattern ]]; then
-            MATCH_EXCLUDE=true
-            break
-          fi
-        done
-
-        if [ "$MATCH_EXCLUDE" = false ]; then
-          CHANGED_TS_FILES+="$file"$' '
-        fi
-      done <<< "$CHANGED_FILES"
-
-      if [ -n "$CHANGED_TS_FILES" ]; then
-        info_message "Changes detected in TypeScript files."
-        debug_message "$CHANGED_TS_FILES"
-      else
-        success_message "No changes detected in TypeScript files as per tsconfig.json."
-      fi
-    else
-      error "tsconfig.json not found."
-    fi
-
-    if [ -n "$CHANGED_LOCK_FILES" ] || [ -n "$CHANGED_TS_FILES" ]; then
-      SKIP_UPDATE=false
-    else
-      SKIP_UPDATE=true
-    fi
-  fi
+if [[ -z "$GIT_REPO_ADDRESS" ]]; then
+  info_message "Skipping Git actions (no repository provided)."
 else
-  warn_message "Auto update is disabled."
-fi
+  if [[ -d .git && "$AUTO_UPDATE" -eq 1 ]]; then
+    if is_git_up_to_date; then
+      success_message "Project core is already up to date."
+      success_message "Skip pulling."
+      SKIP_UPDATE=true
+    else
+      info_message "Updating project core from repository..."
 
+      PRE_PULL_COMMIT=$(git rev-parse HEAD)
+      info_message "Pre-pull commit: ${YELLOW}$PRE_PULL_COMMIT${NC}"
+
+      git reset --hard || { error_exit "Git reset failed."; }
+      git pull || { error_exit "Git pull failed."; }
+
+      POST_PULL_COMMIT=$(git rev-parse HEAD)
+      success_message "Updated commit: ${YELLOW}$POST_PULL_COMMIT${NC}"
+
+      CHANGED_FILES=$(git diff --name-only $PRE_PULL_COMMIT $POST_PULL_COMMIT)
+
+      CHANGED_LOCK_FILES=$(echo "$CHANGED_FILES" | grep -E '^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb)$')
+      if [ -n "$CHANGED_LOCK_FILES" ]; then
+        info_message "Changes detected in lock files:"
+        debug_message "$CHANGED_LOCK_FILES"
+
+      else
+        success_message "No changes detected in lock files."
+      fi
+
+      if [ -f "tsconfig.json" ]; then
+        if command -v jq >/dev/null 2>&1; then
+          INCLUDE_PATTERNS=$(jq -r '.include[]' tsconfig.json | sed 's|^\./||')
+          EXCLUDE_PATTERNS=$(jq -r '.exclude[]' tsconfig.json | sed 's|^\./||')
+        else
+          error "Jq not found. Skipping TypeScript files check."
+          INCLUDE_PATTERNS=""
+          EXCLUDE_PATTERNS=""
+        fi
+
+        CHANGED_TS_FILES=""
+
+        while IFS= read -r file; do
+          MATCH_INCLUDE=false
+          for pattern in $INCLUDE_PATTERNS; do
+            # Використовуємо bash glob matching
+            if [[ "$file" == $pattern ]]; then
+              MATCH_INCLUDE=true
+              break
+            fi
+          done
+
+          if [ "$MATCH_INCLUDE" = false ]; then
+            continue
+          fi
+
+          MATCH_EXCLUDE=false
+          for pattern in $EXCLUDE_PATTERNS; do
+            if [[ "$file" == $pattern ]]; then
+              MATCH_EXCLUDE=true
+              break
+            fi
+          done
+
+          if [ "$MATCH_EXCLUDE" = false ]; then
+            CHANGED_TS_FILES+="$file"$' '
+          fi
+        done <<< "$CHANGED_FILES"
+
+        if [ -n "$CHANGED_TS_FILES" ]; then
+          info_message "Changes detected in TypeScript files."
+          debug_message "$CHANGED_TS_FILES"
+        else
+          success_message "No changes detected in TypeScript files as per tsconfig.json."
+        fi
+      else
+        error "tsconfig.json not found."
+      fi
+
+      if [ -n "$CHANGED_LOCK_FILES" ] || [ -n "$CHANGED_TS_FILES" ]; then
+        SKIP_UPDATE=false
+      else
+        SKIP_UPDATE=true
+      fi
+    fi
+  else
+    warn_message "Auto update is disabled."
+  fi
+fi
 # --------------------------------------------
 # Load Environment Variables
 # --------------------------------------------
@@ -570,28 +632,52 @@ fi
 # --------------------------------------------
 # Setup Sentry Release
 # --------------------------------------------
-info_message "Checking Sentry release..."
-./sentry.sh || { error_exit "Sentry setup failed."; }
+
+if [ "$ENABLE_SENTRY" == "1" ]; then
+    info_message "Checking Sentry release..."
+    ./sentry.sh || { error_exit "Sentry setup failed."; }
+  else
+    info_message "Sentry plugin is dissabled."
+fi
 
 # --------------------------------------------
-# Setup Nginx
+# Setup Nginx (if not disabled)
 # --------------------------------------------
-info_message "Setting up Nginx..."
-./nginx.sh --verify --register || { error_exit "Nginx setup failed."; }
+if [ "$ENABLE_NGINX" == "1" ]; then
+    info_message "Setting up Nginx..."
+    ./nginx.sh --verify --register || { error_exit "Nginx setup failed."; }
+  else
+    info_message "Nginx plugin is dissabled."
+fi
 
 # --------------------------------------------
-# Start Production Server
+# Start Production or Development Server
 # --------------------------------------------
+
 info_message "Starting production server..."
-# Run production build
-NODE_ENV=production $CMD_PREFIX production > /dev/null 2>&1 || { error_exit "Failed to start production server."; }
+info_message "Starting application in '$MODE' mode..."
+
+if [ "$MODE" == "production" ]; then
+  NODE_ENV=production $CMD_PREFIX "$CUSTOM_CMD_PROD" > /dev/null 2>&1 || {
+    error_exit "Failed to start production server."
+  }
+else
+  NODE_ENV=development $CMD_PREFIX "$CUSTOM_CMD_DEV" > /dev/null 2>&1 || {
+    error_exit "Failed to start dev server."
+  }
+fi
 
 # --------------------------------------------
 # Monitor with PM2
 # --------------------------------------------
-info_message "Starting log service..."
-success_message "Process started. Monitoring with PM2."
-$CMD_PREFIX monit || { error_exit "Failed to start PM2 monitoring."; }
+if [ "$ENABLE_LOG_SERVICE" == "1" ]; then
+  info_message "Starting log service..."
+  success_message "Process started. Monitoring with PM2."
+  $CMD_PREFIX monit || { error_exit "Failed to start PM2 monitoring."; }
+else
+  warn_message "Log service (PM2 monitoring) is disabled."
+fi
+
 
 # --------------------------------------------
 # Script Completion
