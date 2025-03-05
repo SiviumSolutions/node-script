@@ -489,96 +489,102 @@ fi
 # --------------------------------------------
 # Handle Node Modules Installation and Updates
 # --------------------------------------------
+
 if [[ "$SKIP_UPDATE" == false || "$REINSTALL_MODULES" == "1" ]]; then
   # Reinstall node modules if requested
-  if [[ "$REINSTALL_MODULES" == "1" ]]; then
-    warn_message "Reinstalling node modules is enabled.${NC}"
-    info_message "Remove node modules...${NC}"
-    rm -rf node_modules || { error_exit "Failed to remove node_modules."; }
-  fi
-  # Determine Lock File Based on Package Manager
-  LOCK_FILE=""
-  case "$PKG_MANAGER" in
-    yarn)
-      LOCK_FILE="yarn.lock"
-      ;;
-    npm)
-      LOCK_FILE="package-lock.json"
-      ;;
-    pnpm)
-      LOCK_FILE="pnpm-lock.yaml"
-      ;;
-    bun)
-      LOCK_FILE="bun.lockb"
-      ;;
-  esac
 
-  # Install Dependencies if Lock File Does Not Exist
-  if [ ! -f "$LOCK_FILE" ]; then
-    warn_message "$LOCK_FILE does not exist. Creating..."
-    $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
-      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-    done || { error_exit "Failed to install dependencies."; }
-  fi
-  info_message "Checking lock files..."
-  # Handle Changes in Lock Files
-  if [ -n "$CHANGED_LOCK_FILES" ]; then
-    warn_message "Make action for detected changes in lock files. Trigger file:"
-    debug_message "$CHANGED_LOCK_FILES"
-    info_message "Installing updated packages..."
-    info_message "Preparing dependencies..."
+  if [ ! -f "package.json" ]; then
+    warn_message "No package.json found. Skipping node modules update/install."
+  else
+    if [[ "$REINSTALL_MODULES" == "1" ]]; then
+      warn_message "Reinstalling node modules is enabled.${NC}"
+      info_message "Remove node modules...${NC}"
+      rm -rf node_modules || { error_exit "Failed to remove node_modules."; }
+    fi
+    # Determine Lock File Based on Package Manager
+    LOCK_FILE=""
     case "$PKG_MANAGER" in
+      yarn)
+        LOCK_FILE="yarn.lock"
+        ;;
       npm)
-        $PKG_MANAGER ci 2> >(grep -v warning >&2) | while IFS= read -r line; do
-          echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-        done
+        LOCK_FILE="package-lock.json"
         ;;
       pnpm)
-        $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning >&2) | while IFS= read -r line; do
-          echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-        done
-        ;;
-      yarn)
-        $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning >&2) | while IFS= read -r line; do
-          echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-        done
+        LOCK_FILE="pnpm-lock.yaml"
         ;;
       bun)
-        $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
-          echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-        done
+        LOCK_FILE="bun.lockb"
         ;;
     esac
-  else
-    success_message "No changes detected in lock files between local and remote."
-  fi
 
-  # --------------------------------------------
-  # Consolidated Build Logic
-  # --------------------------------------------
+    # Install Dependencies if Lock File Does Not Exist
+    if [ ! -f "$LOCK_FILE" ]; then
+      warn_message "$LOCK_FILE does not exist. Creating..."
+      $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
+        echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+      done || { error_exit "Failed to install dependencies."; }
+    fi
+    info_message "Checking lock files..."
+    # Handle Changes in Lock Files
+    if [ -n "$CHANGED_LOCK_FILES" ]; then
+      warn_message "Make action for detected changes in lock files. Trigger file:"
+      debug_message "$CHANGED_LOCK_FILES"
+      info_message "Installing updated packages..."
+      info_message "Preparing dependencies..."
+      case "$PKG_MANAGER" in
+        npm)
+          $PKG_MANAGER ci 2> >(grep -v warning >&2) | while IFS= read -r line; do
+            echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+          done
+          ;;
+        pnpm)
+          $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning >&2) | while IFS= read -r line; do
+            echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+          done
+          ;;
+        yarn)
+          $PKG_MANAGER install --frozen-lockfile 2> >(grep -v warning >&2) | while IFS= read -r line; do
+            echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+          done
+          ;;
+        bun)
+          $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
+            echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+          done
+          ;;
+      esac
+    else
+      success_message "No changes detected in lock files between local and remote."
+    fi
 
-  if [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" != "1" ]; then
-    warn_message "Detected changes in TypeScript files. Trigger files:"
-    debug_message "$CHANGED_TS_FILES"
-    info_message "Rebuilding application..."
-    BUILD_REQUIRED=true
-  fi
+    # --------------------------------------------
+    # Consolidated Build Logic
+    # --------------------------------------------
 
-  if [ "$BUILD_BEFORE_START" == "1" ] && [ "$FORCE_REBUILD" != "1" ]; then
-    # Only set BUILD_REQUIRED to true if not already set by TS changes
-    if [ "$BUILD_REQUIRED" = false ]; then
-      info_message "Building application as per BUILD_BEFORE_START flag..."
+    if [ -n "$CHANGED_TS_FILES" ] && [ "$FORCE_REBUILD" != "1" ]; then
+      warn_message "Detected changes in TypeScript files. Trigger files:"
+      debug_message "$CHANGED_TS_FILES"
+      info_message "Rebuilding application..."
       BUILD_REQUIRED=true
     fi
-  fi
 
-  if [ "$BUILD_REQUIRED" = true ]; then
-    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Build failed."; }
-    success_message "Build completed successfully."
-  elif [ "$FORCE_REBUILD" == "1" ]; then
-    warn_message "Force rebuild enabled. Skipping build for detected changes in TypeScript files."
-  else
-    success_message "No build actions required."
+    if [ "$BUILD_BEFORE_START" == "1" ] && [ "$FORCE_REBUILD" != "1" ]; then
+      # Only set BUILD_REQUIRED to true if not already set by TS changes
+      if [ "$BUILD_REQUIRED" = false ]; then
+        info_message "Building application as per BUILD_BEFORE_START flag..."
+        BUILD_REQUIRED=true
+      fi
+    fi
+
+    if [ "$BUILD_REQUIRED" = true ]; then
+      NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Build failed."; }
+      success_message "Build completed successfully."
+    elif [ "$FORCE_REBUILD" == "1" ]; then
+      warn_message "Force rebuild enabled. Skipping build for detected changes in TypeScript files."
+    else
+      success_message "No build actions required."
+    fi
   fi
 fi
 
@@ -588,46 +594,58 @@ fi
 
 info_message "Checking node modules before build operations..."
 if ! directory_exists "node_modules"; then
-  info_message "Installing node modules..."
-  $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
-    echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
-  done || { error_exit "Failed to install node modules."; }
+  if [ ! -f "package.json" ]; then
+    warn_message "package.json not found. Skipping node modules installation."
+  else
+    info_message "Installing node modules..."
+    $PKG_MANAGER install 2> >(grep -v warning >&2) | while IFS= read -r line; do
+      echo -e "${ORANGE}SIVIUM SCRIPTS |${LIGHTBLUE} $line${NC}"
+    done || { error_exit "Failed to install node modules."; }
+  fi
 fi
 # --------------------------------------------
 # Handle Force Rebuild (If Not Covered Above)
 # --------------------------------------------
 if [[ "$FORCE_REBUILD" == "1" && "$BUILD_REQUIRED" = false ]]; then
   echo -e "${ORANGE}SIVIUM SCRIPTS |${RED} Force building project from source...${NC}"
-  NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Force build failed."; }
-  success_message "Force build completed successfully."
-  BUILD_REQUIRED=false
+  if [ ! -f "package.json" ]; then
+    warn_message "No package.json found. Skipping force build step."
+  else
+    NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Force build failed."; }
+    success_message "Force build completed successfully."
+    BUILD_REQUIRED=false
+  fi
 fi
 # --------------------------------------------
 # Handle Project Type Specific Builds (Optional)
 # --------------------------------------------
 if [[ "$BUILD_BEFORE_START" == "1" && "$FORCE_REBUILD" == "0" && "$BUILD_REQUIRED" = false ]]; then
   info_message "Checking build artifacts..."
-  case "$PRJ_TYPE" in
-    backend)
-      if ! directory_exists "dist"; then
-        info_message "Building backend from source..."
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Backend build failed."; }
-      fi
-      ;;
-    frontend)
-      if ! directory_exists ".next"; then
-        info_message "Building frontend from source..."
-        NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Frontend build failed."; }
-      fi
-      ;;
-    api|microservice)
-      # Add specific build steps if needed
-      success_message "No specific build steps for project type '${PRJ_TYPE}'.${NC}"
-      ;;
-    *)
-      error "Unknown project type: $PRJ_TYPE"
-      ;;
-  esac
+  if [ ! -f "package.json" ]; then
+    warn_message "No package.json found. Skipping build step."
+  else
+    case "$PRJ_TYPE" in
+      backend)
+        if ! directory_exists "dist"; then
+          info_message "Building backend from source..."
+          NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Backend build failed."; }
+        fi
+        ;;
+      frontend)
+        if ! directory_exists ".next"; then
+          info_message "Building frontend from source..."
+          NODE_ENV=production $CMD_PREFIX build > /dev/null 2>&1 || { error_exit "Frontend build failed."; }
+        fi
+        ;;
+      api|microservice)
+        # Add specific build steps if needed
+        success_message "No specific build steps for project type '${PRJ_TYPE}'.${NC}"
+        ;;
+      *)
+        error "Unknown project type: $PRJ_TYPE"
+        ;;
+    esac
+  fi
 fi
 # --------------------------------------------
 # Setup Sentry Release
