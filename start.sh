@@ -377,7 +377,7 @@ if [[ -n "$CURRENT_BRANCH" && -n "$CURRENT_COMMIT" ]]; then
   success_message "Current branch: ${YELLOW}$CURRENT_BRANCH"
   success_message "Current commit: ${YELLOW}$CURRENT_COMMIT"
 else
-  error "Not a Git repository or Git is not installed."
+  debug_message "Not a Git repository or Git is not installed."
 fi
 
 # --------------------------------------------
